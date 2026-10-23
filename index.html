@@ -231,11 +231,11 @@
       <div class="stories-bar" id="storiesBar"></div>
       <ul class="chat-list" id="chatList"></ul>
       
-      <div class="version-badge">Lumen v3.0.0</div>
+      <div class="version-badge">Lumen v3.1.0</div>
       
       <nav class="sidebar__nav">
         <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
-        <button class="nav-btn" data-tab="friends">👥<span>Друзья</span></button>
+        <button class="nav-btn" data-tab="friends" id="friendsNavBtn">👥<span>Друзья</span></button>
         <button class="nav-btn" data-tab="profile">👤<span>Профиль</span></button>
       </nav>
     </aside>
@@ -264,4 +264,690 @@
           <button class="send-btn" id="sendBtn">➤</button>
         </footer>
 
-       
+        <div class="emoji-panel hidden" id="emojiPanel">
+          <span>😀</span><span>😂</span><span>🥰</span><span>😎</span><span>🤔</span><span>😴</span><span>🤯</span><span>😭</span>
+          <span>👍</span><span>👎</span><span>❤️</span><span>🔥</span><span>🎉</span><span>💩</span><span>💯</span><span>🙏</span>
+        </div>
+      </div>
+    </main>
+
+    <aside class="side-panel" id="sidePanel">
+      <header class="side-panel__header">
+        <button class="icon-btn" id="closeSidePanelBtn">✕</button>
+        <h3 id="sidePanelTitle">Меню</h3>
+      </header>
+      <div class="side-panel__body" id="sidePanelBody"></div>
+    </aside>
+  </div>
+
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modal"></div>
+  </div>
+
+  <div class="story-viewer hidden" id="storyViewer" onclick="closeStoryViewer()" style="position:fixed;inset:0;background:#000;z-index:300;display:flex;align-items:center;justify-content:center;">
+    <button class="close-btn" style="position:absolute;top:20px;right:20px;color:#fff;font-size:30px;background:rgba(0,0,0,0.5);border-radius:50%;width:40px;height:40px;">✕</button>
+    <img id="storyViewerImg" src="" style="max-width:100%;max-height:100%;object-fit:contain;">
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+</div>
+
+<script>
+  const API = '/api';
+  let socket = null;
+  try { if (typeof io !== 'undefined') socket = io(); } catch (e) {}
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const initials = n => n.trim().split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase() || '?';
+  const randColor = () => ['#e57373','#64b5f6','#81c784','#ffb74d','#ba68c8','#4db6ac'][Math.floor(Math.random()*6)];
+
+  let currentUser = null;
+  let DB = { users: [], messages: [], stories: [], channels: [], requests: [] };
+  let activeChatId = null;
+  let theme = localStorage.getItem('theme') || 'dark';
+  
+  let voiceRecorder = null, voiceChunks = [], voiceTimerInt = null, voiceSeconds = 0;
+  let videoRecorder = null, videoChunks = [], videoStream = null, videoTimerInt = null, videoSeconds = 0;
+
+  if (theme === 'light') document.body.classList.add('theme-light');
+
+  function showLoader(show) { $('loader').classList.toggle('hidden', !show); }
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 3000);
+  }
+  function openModal(html) { $('modal').innerHTML = html; $('modalOverlay').classList.remove('hidden'); }
+  function closeModal() { $('modalOverlay').classList.add('hidden'); }
+  $('modalOverlay').onclick = e => { if (e.target.id === 'modalOverlay') closeModal(); };
+
+  async function loadDB() {
+    try {
+      const res = await fetch(`${API}/db`); DB = await res.json();
+      if (!DB.requests) DB.requests = [];
+      renderChats(); renderStories(); updateFriendBadge();
+    } catch (e) { console.error(e); }
+  }
+
+  function updateFriendBadge() {
+    if (!currentUser) return;
+    const myRequests = DB.requests.filter(r => r.to === currentUser.phone);
+    const navBtn = $('friendsNavBtn');
+    let badge = navBtn.querySelector('.nav-badge');
+    
+    if (myRequests.length > 0) {
+      if (!badge) {
+        badge = document.createElement('div');
+        badge.className = 'nav-badge';
+        badge.style.cssText = 'position:absolute; top:2px; right:25%; background:var(--danger); color:#fff; font-size:10px; border-radius:10px; padding:2px 5px; font-weight:bold;';
+        navBtn.appendChild(badge);
+      }
+      badge.textContent = myRequests.length;
+    } else if (badge) {
+      badge.remove();
+    }
+  }
+
+  // ==========================================
+  //  АВТОРИЗАЦИЯ
+  // ==========================================
+  function showAuthScreen() {
+    $('authScreen').classList.remove('hidden'); $('appInner').classList.add('hidden');
+    ['Phone', 'Password', 'Code', 'Name'].forEach(s => $('authStep' + s).classList.add('hidden'));
+    $('authStepPhone').classList.remove('hidden');
+  }
+
+  function showApp(user) {
+    currentUser = user; localStorage.setItem('lumen_user', JSON.stringify(user));
+    $('authScreen').classList.add('hidden'); $('appInner').classList.remove('hidden');
+    if (socket) socket.emit('join', currentUser.phone);
+    loadDB();
+  }
+
+  let pendingPhone = '', pendingCode = '';
+
+  $('authSendCode').onclick = async () => {
+    const phone = $('authPhone').value.trim(); if (!phone) return;
+    showLoader(true);
+    try {
+      const res = await fetch(`${API}/auth/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
+      const data = await res.json();
+      pendingPhone = phone; $('authStepPhone').classList.add('hidden');
+      if (data.exists && data.requiresPassword) $('authStepPassword').classList.remove('hidden');
+      else if (data.exists) showApp(data.user);
+      else {
+        pendingCode = String(Math.floor(10000 + Math.random() * 90000));
+        $('authCodeHint').textContent = `Код: ${pendingCode}`; $('authStepCode').classList.remove('hidden');
+      }
+    } catch (e) { toast('Ошибка сервера'); } finally { showLoader(false); }
+  };
+
+  $('authVerifyPassword').onclick = async () => {
+    const password = $('authPassword').value.trim();
+    showLoader(true);
+    const res = await fetch(`${API}/auth/verify-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: pendingPhone, password }) });
+    const data = await res.json();
+    showLoader(false);
+    if (res.ok) showApp(data.user); else toast(data.error);
+  };
+
+  $('authBackFromPass').onclick = () => { $('authStepPassword').classList.add('hidden'); $('authStepPhone').classList.remove('hidden'); };
+  $('authBack').onclick = () => { $('authStepCode').classList.add('hidden'); $('authStepPhone').classList.remove('hidden'); };
+
+  $('authVerifyCode').onclick = () => {
+    if ($('authCode').value.trim() !== pendingCode) return toast('Неверный код');
+    $('authStepCode').classList.add('hidden'); $('authStepName').classList.remove('hidden');
+  };
+
+  $('authFinish').onclick = async () => {
+    const name = $('authName').value.trim(), username = $('authUsername').value.trim();
+    if (!name || !username) return toast('Заполните поля');
+    showLoader(true);
+    const res = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: pendingPhone, name, username, color: randColor() }) });
+    const data = await res.json();
+    showLoader(false);
+    if (res.ok) showApp(data.user); else toast(data.error);
+  };
+
+  // ==========================================
+  //  ИСТОРИИ
+  // ==========================================
+  function renderStories() {
+    const bar = $('storiesBar');
+    bar.innerHTML = `
+      <div class="story-item" onclick="openStoryCamera()">
+        <div class="story-ring story-ring--add"><div class="story-inner">＋</div></div>
+        <div class="story-label">Добавить</div>
+      </div>
+    `;
+    DB.stories.forEach(s => {
+      const author = DB.users.find(u => u.phone === s.authorPhone);
+      if (!author) return;
+      const div = document.createElement('div');
+      div.className = 'story-item';
+      div.innerHTML = `
+        <div class="story-ring"><div class="story-inner" style="background:${author.color}">
+          ${s.image ? `<img src="${s.image}">` : esc(initials(author.name))}
+        </div></div>
+        <div class="story-label">${esc(author.name.split(' ')[0])}</div>
+      `;
+      div.onclick = (e) => { e.stopPropagation(); openStoryViewer(s.image); };
+      bar.appendChild(div);
+    });
+  }
+
+  window.openStoryViewer = (imgUrl) => {
+    if(!imgUrl) return;
+    $('storyViewerImg').src = imgUrl;
+    $('storyViewer').classList.remove('hidden');
+  };
+  window.closeStoryViewer = () => $('storyViewer').classList.add('hidden');
+
+  window.openStoryCamera = () => {
+    openModal(`
+      <h3>Новая история</h3>
+      <video id="cameraStream" autoplay playsinline></video>
+      <canvas id="photoCanvas" class="hidden"></canvas>
+      <div class="camera-controls">
+        <button class="cam-btn" onclick="takePhoto()">📸</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="stopStoryCamera()">Отмена</button>
+      </div>
+    `);
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      videoStream = stream;
+      $('cameraStream').srcObject = stream;
+    }).catch(() => toast('Нет доступа к камере'));
+  };
+
+  window.takePhoto = () => {
+    const video = $('cameraStream');
+    const canvas = $('photoCanvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    window.stopStoryCamera();
+    publishStory(dataUrl);
+  };
+
+  window.stopStoryCamera = () => {
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    closeModal();
+  };
+
+  async function publishStory(image) {
+    showLoader(true);
+    await fetch(`${API}/story`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorPhone: currentUser.phone, image }) });
+    showLoader(false); toast('История опубликована!'); loadDB();
+  }
+
+  // ==========================================
+  //  ЧАТЫ И ПОИСК
+  // ==========================================
+  $('searchInput').oninput = async (e) => {
+    const q = e.target.value.trim();
+    if (!q) { renderChats(); return; }
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const users = await res.json();
+    const list = $('chatList'); list.innerHTML = '';
+    if (!users.length) return list.innerHTML = '<p style="padding:20px; text-align:center; color:var(--text-muted);">Никого не найдено</p>';
+    
+    users.forEach(u => {
+      if (u.phone === currentUser.phone) return;
+      const li = document.createElement('li'); li.className = 'chat-item';
+      li.innerHTML = `
+        <div class="avatar" style="background:${u.color}">${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}</div>
+        <div class="chat-item__body">
+          <div class="chat-item__name">${esc(u.name)}</div>
+          <div class="chat-item__preview">@${esc(u.username)} · ${esc(u.phone)}</div>
+        </div>
+        <button class="modal-btn primary" style="padding:6px 10px; font-size:12px;" onclick="event.stopPropagation(); sendFriendRequest('${u.phone}')">Добавить</button>
+      `;
+      li.onclick = () => { e.target.value = ''; openChat(u.phone); };
+      list.appendChild(li);
+    });
+  };
+
+  window.sendFriendRequest = async (phone) => {
+    await fetch(`${API}/friend/request`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: currentUser.phone, to: phone }) });
+    toast('Заявка отправлена'); 
+  };
+
+  function renderChats() {
+    if (!currentUser) return;
+    const list = $('chatList'); list.innerHTML = '';
+    
+    // Принудительно добавляем ИИ-бота
+    const aiUser = DB.users.find(u => u.phone === 'AI_BOT');
+    if (aiUser) {
+      const li = document.createElement('li'); li.className = 'chat-item';
+      li.innerHTML = `
+        <div class="avatar" style="background:${aiUser.color}">🤖</div>
+        <div class="chat-item__body">
+          <div class="chat-item__name">${esc(aiUser.name)}</div>
+          <div class="chat-item__preview">Ваш личный ИИ-помощник</div>
+        </div>
+      `;
+      li.onclick = () => openChat('AI_BOT');
+      list.appendChild(li);
+    }
+
+    const contactPhones = new Set();
+    DB.messages.forEach(m => {
+      if (m.from === currentUser.phone) contactPhones.add(m.to);
+      if (m.to === currentUser.phone) contactPhones.add(m.from);
+    });
+    contactPhones.delete('AI_BOT');
+
+    const chatArray = [];
+    contactPhones.forEach(phone => {
+      const contact = DB.users.find(u => u.phone === phone);
+      if (!contact) return;
+      const msgs = DB.messages.filter(m => (m.from === currentUser.phone && m.to === phone) || (m.from === phone && m.to === currentUser.phone)).sort((a,b) => a.timestamp - b.timestamp);
+      const last = msgs[msgs.length - 1];
+      const unread = msgs.filter(m => m.from === phone && !m.read).length;
+      chatArray.push({ contact, last, unread });
+    });
+
+    chatArray.sort((a, b) => (b.last ? b.last.timestamp : 0) - (a.last ? a.last.timestamp : 0));
+
+    chatArray.forEach(item => {
+      const { contact, last, unread } = item;
+      const li = document.createElement('li');
+      li.className = 'chat-item' + (activeChatId === contact.phone ? ' active' : '');
+      li.innerHTML = `
+        <div class="avatar" style="background:${contact.color}">${contact.avatar ? `<img src="${contact.avatar}">` : esc(initials(contact.name))}</div>
+        <div class="chat-item__body">
+          <div class="chat-item__top"><span class="chat-item__name">${esc(contact.name)}</span><span class="chat-item__time">${last ? last.time : ''}</span></div>
+          <div class="chat-item__preview">${last ? (last.from === currentUser.phone ? 'Вы: ' : '') + (last.type === 'voice' ? '🎤 Голосовое' : last.type === 'video' ? '🔺 Видео' : esc(last.text)) : ''}</div>
+        </div>
+        ${unread ? `<span class="unread-badge">${unread}</span>` : ''}
+      `;
+      li.onclick = () => openChat(contact.phone);
+      list.appendChild(li);
+    });
+  }
+
+  async function openChat(phone) {
+    const contact = DB.users.find(u => u.phone === phone);
+    activeChatId = phone;
+    if (window.innerWidth <= 768) $('chatArea').classList.add('open');
+
+    if (phone !== 'AI_BOT') {
+      try { await fetch(`${API}/read`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: phone, to: currentUser.phone }) }); } catch(e) {}
+    }
+
+    $('chatEmpty').classList.add('hidden'); $('chatWindow').classList.remove('hidden');
+    $('chatName').textContent = contact.name;
+    $('chatStatus').textContent = phone === 'AI_BOT' ? 'онлайн' : 'был(а) недавно';
+    $('chatAvatar').innerHTML = contact.avatar ? `<img src="${contact.avatar}">` : (phone === 'AI_BOT' ? '🤖' : esc(initials(contact.name)));
+    $('chatAvatar').style.background = contact.color;
+    
+    await loadDB(); renderMessages(contact);
+    $('messageInput').focus();
+  }
+
+  $('mobileBackBtn').onclick = () => { $('chatArea').classList.remove('open'); activeChatId = null; renderChats(); };
+
+  // ==========================================
+  //  СООБЩЕНИЯ
+  // ==========================================
+  function renderMessages(contact) {
+    const box = $('messages'); box.innerHTML = '';
+    DB.messages.filter(m => (m.from === currentUser.phone && m.to === contact.phone) || (m.from === contact.phone && m.to === currentUser.phone))
+      .sort((a,b) => a.timestamp - b.timestamp)
+      .forEach(m => {
+        const isOut = m.from === currentUser.phone;
+        let content = '';
+        
+        if (m.type === 'voice') {
+          content = `<div class="voice-msg" onclick="playVoice(this, '${m.text}')"><div class="voice-play">▶</div><div class="voice-wave">${Array(10).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*80)+20}%"></div>`).join('')}</div></div>`;
+        } else if (m.type === 'video') {
+          content = `<div class="video-triangle"><video src="${m.text}" autoplay loop muted playsinline></video></div>`;
+        } else {
+          content = esc(m.text);
+        }
+
+        const div = document.createElement('div');
+        div.className = `msg ${isOut ? 'out' : 'in'}`;
+        div.innerHTML = `
+          <div class="bubble">${content}</div>
+          <div class="msg__meta"><span>${m.time}</span>${isOut ? `<span class="check">✓✓</span>` : ''}</div>
+        `;
+        box.appendChild(div);
+      });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  window.playVoice = (el, base64) => {
+    if(!base64 || base64 === 'null') return toast('Аудио не записалось');
+    const audio = new Audio(base64);
+    const btn = el.querySelector('.voice-play');
+    btn.textContent = '⏸';
+    audio.play();
+    audio.onended = () => { btn.textContent = '▶'; };
+  };
+
+  async function sendMessage(type = 'text', textContent = '') {
+    const text = type === 'text' ? $('messageInput').value.trim() : textContent;
+    if (!text || !activeChatId) return;
+    if (type === 'text') $('messageInput').value = '';
+    
+    try {
+      await fetch(`${API}/message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: currentUser.phone, to: activeChatId, text, type }) });
+      loadDB().then(() => renderMessages(DB.users.find(u => u.phone === activeChatId)));
+    } catch (e) { toast('Ошибка отправки'); }
+  }
+
+  $('sendBtn').onclick = () => sendMessage('text');
+  $('messageInput').onkeydown = e => { if (e.key === 'Enter') sendMessage('text'); };
+
+  // ==========================================
+  //  ЭМОДЗИ
+  // ==========================================
+  $('emojiBtn').onclick = () => $('emojiPanel').classList.toggle('hidden');
+  $('emojiPanel').onclick = (e) => {
+    if (e.target.tagName === 'SPAN') { $('messageInput').value += e.target.textContent; $('messageInput').focus(); }
+  };
+
+  // ==========================================
+  //  ГОЛОС И ВИДЕО
+  // ==========================================
+  $('voiceBtn').onclick = async () => {
+    if (!activeChatId) return toast('Откройте чат');
+    openModal(`
+      <div class="rec-overlay">
+        <div class="rec-circle recording" id="recCircle">🎤</div>
+        <div class="rec-timer" id="recTimer">0:00</div>
+        <div style="display:flex; gap:20px; margin-top:20px;">
+          <button class="modal-btn" onclick="cancelVoice()">Отмена</button>
+          <button class="modal-btn primary" onclick="stopVoice()">Отправить</button>
+        </div>
+      </div>
+    `);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceRecorder = new MediaRecorder(stream);
+      voiceChunks = []; voiceSeconds = 0; $('recTimer').textContent = '0:00';
+      voiceRecorder.ondataavailable = e => voiceChunks.push(e.data);
+      voiceRecorder.onstop = () => {
+        const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => { sendMessage('voice', reader.result); stream.getTracks().forEach(t => t.stop()); };
+        reader.readAsDataURL(blob);
+      };
+      voiceRecorder.start();
+      voiceTimerInt = setInterval(() => {
+        voiceSeconds++;
+        $('recTimer').textContent = `0:${voiceSeconds < 10 ? '0' : ''}${voiceSeconds}`;
+      }, 1000);
+    } catch (e) { closeModal(); toast('Нет доступа к микрофону'); }
+  };
+
+  window.stopVoice = () => { clearInterval(voiceTimerInt); if (voiceRecorder) voiceRecorder.stop(); closeModal(); };
+  window.cancelVoice = () => { clearInterval(voiceTimerInt); if (voiceRecorder) { voiceRecorder.onstop = null; voiceRecorder.stop(); } closeModal(); };
+
+  $('videoNoteBtn').onclick = async () => {
+    if (!activeChatId) return toast('Откройте чат');
+    openModal(`
+      <div class="rec-overlay">
+        <video id="recVideo" autoplay playsinline muted style="width:200px; height:200px; object-fit:cover; transform:scaleX(-1); border:4px solid var(--accent); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); background:#000;"></video>
+        <div class="rec-timer" id="recTimerVid">0:00</div>
+        <div style="display:flex; gap:20px; margin-top:20px;">
+          <button class="modal-btn" onclick="cancelVideoNote()">Отмена</button>
+          <button class="modal-btn primary" onclick="stopVideoNote()">Отправить</button>
+        </div>
+      </div>
+    `);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480 }, audio: true });
+      videoStream = stream; $('recVideo').srcObject = stream;
+      videoRecorder = new MediaRecorder(stream);
+      videoChunks = []; videoSeconds = 0; $('recTimerVid').textContent = '0:00';
+      videoRecorder.ondataavailable = e => videoChunks.push(e.data);
+      videoRecorder.onstop = () => {
+        const blob = new Blob(videoChunks, { type: 'video/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => { sendMessage('video', reader.result); stream.getTracks().forEach(t => t.stop()); };
+        reader.readAsDataURL(blob);
+      };
+      videoRecorder.start();
+      videoTimerInt = setInterval(() => {
+        videoSeconds++;
+        $('recTimerVid').textContent = `0:${videoSeconds < 10 ? '0' : ''}${videoSeconds}`;
+        if (videoSeconds >= 60) stopVideoNote();
+      }, 1000);
+    } catch (e) { closeModal(); toast('Нет доступа к камере'); }
+  };
+
+  window.stopVideoNote = () => {
+    clearInterval(videoTimerInt);
+    if (videoRecorder) videoRecorder.stop();
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    closeModal();
+  };
+
+  window.cancelVideoNote = () => {
+    clearInterval(videoTimerInt);
+    if (videoRecorder) { videoRecorder.onstop = null; videoRecorder.stop(); }
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    closeModal();
+  };
+
+  // ==========================================
+  //  БОКОВЫЕ ПАНЕЛИ
+  // ==========================================
+  $('menuBtn').onclick = () => { openSidePanelMenu(); $('sidePanel').classList.add('open'); };
+  $('closeSidePanelBtn').onclick = () => $('sidePanel').classList.remove('open');
+  
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.tab === 'profile') openProfilePanel(currentUser.phone);
+      else if (btn.dataset.tab === 'friends') openFriendsPanel();
+      else $('sidePanel').classList.remove('open');
+    };
+  });
+
+  function openSidePanelMenu() {
+    $('sidePanelTitle').textContent = 'Меню';
+    $('sidePanelBody').innerHTML = `
+      <div class="menu-item" onclick="openProfilePanel('${currentUser.phone}')"><div class="menu-item__icon">👤</div><div class="menu-item__text">Мой профиль</div></div>
+      <div class="menu-item" onclick="openFriendsPanel()"><div class="menu-item__icon">👥</div><div class="menu-item__text">Друзья</div></div>
+      <div class="menu-item" onclick="openSettingsPanel()"><div class="menu-item__icon">⚙️</div><div class="menu-item__text">Настройки</div></div>
+      <div class="menu-item" onclick="createChannel()"><div class="menu-item__icon">📢</div><div class="menu-item__text">Создать канал</div></div>
+      <div class="menu-item" onclick="$('sidePanel').classList.remove('open'); openStoryCamera()"><div class="menu-item__icon">⭕</div><div class="menu-item__text">Добавить историю</div></div>
+      <div class="menu-item" style="color:var(--danger);" onclick="localStorage.removeItem('lumen_user'); location.reload();"><div class="menu-item__icon">🚪</div><div class="menu-item__text">Выйти</div></div>
+    `;
+  }
+
+  window.createChannel = () => {
+    openModal(`
+      <h3>Создать канал</h3>
+      <div class="modal-field"><label>Название</label><input id="chName" placeholder="Название канала"></div>
+      <div class="modal-field"><label>Описание</label><input id="chDesc" placeholder="О чем канал?"></div>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeModal()">Отмена</button>
+        <button class="modal-btn primary" onclick="submitChannel()">Создать</button>
+      </div>
+    `);
+  };
+
+  window.submitChannel = async () => {
+    const name = $('chName').value.trim();
+    if (!name) return;
+    showLoader(true);
+    await fetch(`${API}/channel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, description: $('chDesc').value, authorPhone: currentUser.phone }) });
+    showLoader(false); closeModal(); toast('Канал создан!'); loadDB();
+  };
+
+  window.openFriendsPanel = () => {
+    $('sidePanel').classList.add('open');
+    $('sidePanelTitle').textContent = 'Друзья';
+    
+    const myRequests = DB.requests.filter(r => r.to === currentUser.phone);
+    const friends = DB.users.filter(u => u.phone !== currentUser.phone && u.phone !== 'AI_BOT');
+    
+    let requestsHtml = '';
+    if (myRequests.length > 0) {
+      requestsHtml = `
+        <div style="font-size:12px; color:var(--danger); margin-bottom:10px; font-weight:bold;">ЗАЯВКИ В ДРУЗЬЯ</div>
+        ${myRequests.map(r => {
+          const sender = DB.users.find(u => u.phone === r.from);
+          if (!sender) return '';
+          return `
+            <div class="menu-item" style="background:var(--bg); margin-bottom:8px;">
+              <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${sender.color}">${esc(initials(sender.name))}</div>
+              <div class="menu-item__text">${esc(sender.name)}</div>
+              <button class="modal-btn primary" style="padding:4px 8px; font-size:12px;" onclick="acceptFriend('${sender.phone}')">Принять</button>
+              <button class="modal-btn" style="padding:4px 8px; font-size:12px;" onclick="declineFriend('${sender.phone}')">✕</button>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    $('sidePanelBody').innerHTML = requestsHtml + `
+      <div style="font-size:12px; color:var(--text-muted); margin-top:20px; margin-bottom:10px; font-weight:bold;">ВСЕ ПОЛЬЗОВАТЕЛИ</div>
+      ${friends.map(u => `
+        <div class="menu-item" onclick="closeSidePanelBtn.click(); openChat('${u.phone}')">
+          <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">
+            ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+          </div>
+          <div class="menu-item__text">
+            <div>${esc(u.name)}</div>
+            <div style="font-size:12px; color:var(--text-muted);">@${esc(u.username)}</div>
+          </div>
+        </div>
+      `).join('')}
+    `;
+  };
+
+  window.acceptFriend = async (from) => {
+    showLoader(true);
+    await fetch(`${API}/friend/accept`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: currentUser.phone }) });
+    showLoader(false); loadDB(); openFriendsPanel();
+  };
+
+  window.declineFriend = async (from) => {
+    await fetch(`${API}/friend/decline`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: currentUser.phone }) });
+    loadDB(); openFriendsPanel();
+  };
+
+  window.openSettingsPanel = () => {
+    $('sidePanelTitle').textContent = 'Настройки';
+    $('sidePanelBody').innerHTML = `
+      <div class="settings-row" style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid var(--border);">
+        <label>Тема</label>
+        <select id="setTheme" style="background:var(--bg); color:var(--text); border:1px solid var(--border); padding:5px; border-radius:6px;">
+          <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Тёмная</option>
+          <option value="light" ${theme === 'light' ? 'selected' : ''}>Светлая</option>
+        </select>
+      </div>
+      <div class="settings-row" style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid var(--border);">
+        <label>Акцент</label>
+        <input type="color" id="setAccent" value="#5288c1" style="background:var(--bg); border:1px solid var(--border); padding:2px; border-radius:6px;">
+      </div>
+    `;
+    $('setTheme').onchange = (e) => { 
+      theme = e.target.value; localStorage.setItem('theme', theme); 
+      if(theme==='light') document.body.classList.add('theme-light'); else document.body.classList.remove('theme-light'); 
+    };
+    $('setAccent').oninput = (e) => document.documentElement.style.setProperty('--accent', e.target.value);
+  };
+
+  window.openProfilePanel = (phone) => {
+    const u = DB.users.find(x => x.phone === phone) || currentUser;
+    const isMe = u.phone === currentUser.phone;
+    $('sidePanel').classList.add('open');
+    $('sidePanelTitle').textContent = isMe ? 'Мой профиль' : 'Профиль';
+    
+    $('sidePanelBody').innerHTML = `
+      <div style="text-align:center; margin-bottom:20px;">
+        ${isMe ? `
+          <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}; cursor:pointer;" onclick="$('avatarInput').click()">
+            ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+          </div>
+          <div style="font-size:12px; color:var(--accent-light); margin-top:8px;">Нажмите на фото, чтобы сменить</div>
+          <input type="file" id="avatarInput" accept="image/*" class="hidden">
+        ` : `
+          <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
+            ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+          </div>
+        `}
+        <h2 style="margin-top:10px;">${esc(u.name)}</h2>
+        <p style="color:var(--text-muted);">${esc(u.phone)}</p>
+      </div>
+      
+      ${isMe ? `
+        <div class="profile-field"><label>Имя</label><input id="pName" value="${esc(u.name)}"></div>
+        <button class="profile-save" id="pSave">Сохранить профиль</button>
+      ` : ''}
+    `;
+    
+    if (isMe) {
+      $('pSave').onclick = async () => {
+        await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, name: $('pName').value }) });
+        toast('Сохранено'); loadDB();
+      };
+      $('avatarInput').onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => { 
+          await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, avatar: ev.target.result }) }); 
+          loadDB(); toast('Фото обновлено'); 
+          setTimeout(() => openProfilePanel(u.phone), 500);
+        };
+        reader.readAsDataURL(file);
+      };
+    }
+  };
+
+  $('newChatBtn').onclick = () => {
+    openModal(`
+      <h3>Найти человека</h3>
+      <div class="modal-field">
+        <label>Введите имя, ник или телефон</label>
+        <input id="findInput" placeholder="Например, Иван или +7900...">
+      </div>
+      <div id="findResults" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
+      <div class="modal-actions"><button class="modal-btn" onclick="closeModal()">Закрыть</button></div>
+    `);
+    
+    let timeout;
+    $('findInput').oninput = (e) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        const q = e.target.value.trim();
+        if (!q) return $('findResults').innerHTML = '';
+        const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+        const users = await res.json();
+        
+        $('findResults').innerHTML = users.map(u => `
+          <div class="chat-item">
+            <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">
+              ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+            </div>
+            <div style="flex:1;">
+              <div style="font-weight:500;">${esc(u.name)}</div>
+              <div style="font-size:12px; color:var(--text-muted);">@${esc(u.username)} · ${esc(u.phone)}</div>
+            </div>
+            <button class="modal-btn primary" style="padding:6px 12px; font-size:12px;" onclick="closeModal(); sendFriendRequest('${u.phone}')">Добавить</button>
+          </div>
+        `).join('') || '<div style="padding:10px; text-align:center; color:var(--text-muted);">Никого не найдено</div>';
+      }, 300);
+    };
+  };
+
+  if (socket) {
+    socket.on('new_message', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
+    socket.on('new_request', () => { if (currentUser) { loadDB(); toast('Новая заявка в друзья!'); } });
+    socket.on('friend_accepted', () => { if (currentUser) { loadDB(); toast('Заявка принята!'); } });
+    socket.on('new_story', () => { if (currentUser) loadDB(); });
+  }
+
+  const savedUser = JSON.parse(localStorage.getItem('lumen_user'));
+  if (savedUser) showApp(savedUser); else showAuthScreen();
+</script>
+</body>
+</html>
