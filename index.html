@@ -21,8 +21,7 @@
     --chat-bg: #f0f2f5;
   }
 
-  /* Сброс стилей для всех элементов (фикс белого поля ввода и т.д.) */
-  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
   input, button, select, textarea { font-family: inherit; color: inherit; background: transparent; border: none; outline: none; }
   body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 15px; }
   .hidden { display: none !important; }
@@ -45,13 +44,23 @@
   .app-inner { display: flex; height: 100vh; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; }
   
   /* SIDEBAR */
-  .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 20; }
+  .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); z-index: 20; }
   .sidebar__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 20px; padding: 6px 12px; }
   .search input { flex: 1; font-size: 14px; }
   .icon-btn { font-size: 18px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
   .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
   
+  /* STORIES BAR */
+  .stories-bar { display: flex; gap: 12px; padding: 10px 12px; overflow-x: auto; border-bottom: 1px solid var(--border); }
+  .stories-bar::-webkit-scrollbar { display: none; }
+  .story-item { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; width: 60px; flex-shrink: 0; }
+  .story-ring { width: 56px; height: 56px; border-radius: 50%; padding: 2px; background: linear-gradient(135deg, var(--accent-light), var(--accent)); }
+  .story-ring--add { background: var(--bg-hover); }
+  .story-inner { width: 100%; height: 100%; border-radius: 50%; border: 2px solid var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 20px; color: #fff; overflow: hidden; }
+  .story-inner img, .story-inner video { width: 100%; height: 100%; object-fit: cover; }
+  .story-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; text-align: center; }
+
   /* CHAT LIST */
   .chat-list { list-style: none; overflow-y: auto; flex: 1; }
   .chat-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; position: relative; }
@@ -75,7 +84,7 @@
   .nav-btn.active { color: var(--accent-light); }
 
   /* CHAT WINDOW */
-  .chat { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; transition: transform 0.3s ease; }
+  .chat { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); }
   .chat__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); }
   .chat__empty-logo { font-size: 48px; font-weight: 700; background: linear-gradient(135deg, var(--accent-light), var(--accent)); -webkit-background-clip: text; color: transparent; }
   
@@ -116,19 +125,21 @@
   .emoji-panel span { font-size: 24px; cursor: pointer; text-align: center; border-radius: 6px; }
   .emoji-panel span:hover { background: var(--bg-hover); }
 
-  /* ПАНЕЛИ (Выезжают слева) */
+  /* БОКОВАЯ ПАНЕЛЬ */
   .side-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 380px; background: var(--bg-secondary); border-right: 1px solid var(--border); z-index: 60; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
   .side-panel.open { transform: translateX(0); }
   .side-panel__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .side-panel__body { flex: 1; overflow-y: auto; padding: 16px; }
-  .profile-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
-  .profile-field label { font-size: 12.5px; color: var(--accent-light); font-weight: 500; }
-  .profile-field input { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14.5px; }
-  .profile-save { width: 100%; background: var(--accent); color: #fff; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 10px; }
+  
   .menu-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; cursor: pointer; transition: background 0.15s; }
   .menu-item:hover { background: var(--bg-hover); }
   .menu-item__icon { font-size: 20px; }
   .menu-item__text { flex: 1; font-weight: 500; }
+
+  .profile-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .profile-field label { font-size: 12.5px; color: var(--accent-light); font-weight: 500; }
+  .profile-field input { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14.5px; }
+  .profile-save { width: 100%; background: var(--accent); color: #fff; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 10px; }
 
   /* MODAL */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
@@ -141,22 +152,28 @@
   .modal-btn { padding: 10px 16px; border-radius: 8px; font-weight: 500; }
   .modal-btn.primary { background: var(--accent); color: #fff; }
   .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--bg-active); color: #fff; padding: 12px 22px; border-radius: 24px; z-index: 1000; font-size: 14px; }
-  
-  .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .settings-row label { font-size: 14.5px; }
-  .settings-row select, .settings-row input[type="color"] { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
-  .swatches { display: flex; gap: 8px; margin-top: 10px; }
-  .swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-  .swatch.active { border-color: #fff; }
 
-  /* ===== МОБИЛЬНЫЙ АДАПТИВ ===== */
+  /* Камера (Истории) */
+  #cameraStream { width: 100%; height: 300px; object-fit: cover; border-radius: 10px; background: #000; }
+  .camera-controls { display: flex; justify-content: space-around; align-items: center; margin-top: 15px; }
+  .cam-btn { width: 60px; height: 60px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 24px; }
+
+  /* ===== МОБИЛЬНЫЙ АДАПТИВ (ФИКСЫ) ===== */
   @media (max-width: 768px) {
+    /* Сайдбар и чат по очереди */
     .sidebar { width: 100%; min-width: 100%; border: none; }
     .chat { position: absolute; inset: 0; z-index: 30; transform: translateX(100%); }
     .chat.open { transform: translateX(0); }
-    .side-panel { width: 100%; }
+    
+    /* Выезжающая панель */
+    .side-panel { width: 100%; z-index: 60; }
+    
     .back-btn { display: flex; }
     .msg { max-width: 85%; }
+    
+    /* Чуть больше отступы для пальцев */
+    .chat-item { padding: 12px; }
+    .composer { padding: 10px; }
   }
 </style>
 </head>
@@ -205,6 +222,14 @@
         </div>
         <button class="icon-btn" id="newChatBtn">✏️</button>
       </header>
+      
+      <div class="stories-bar" id="storiesBar">
+        <div class="story-item" onclick="openStoryCamera()">
+          <div class="story-ring story-ring--add"><div class="story-inner">＋</div></div>
+          <div class="story-label">Добавить</div>
+        </div>
+      </div>
+
       <ul class="chat-list" id="chatList"></ul>
       <nav class="sidebar__nav">
         <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
@@ -274,9 +299,7 @@
   let activeChatId = null;
   let pinnedChats = JSON.parse(localStorage.getItem('pinned') || '[]');
   let theme = localStorage.getItem('theme') || 'dark';
-  let mediaRecorder = null;
-  let audioChunks = [];
-  let videoStream = null;
+  let mediaRecorder = null, audioChunks = [], videoStream = null;
 
   if (theme === 'light') document.body.classList.add('theme-light');
 
@@ -291,7 +314,7 @@
   async function loadDB() {
     try {
       const res = await fetch(`${API}/db`); DB = await res.json();
-      renderChats();
+      renderChats(); renderStories();
     } catch (e) { console.error(e); }
   }
 
@@ -350,6 +373,78 @@
     const data = await res.json();
     if (res.ok) showApp(data.user); else toast(data.error);
   };
+
+  // ==========================================
+  //  ИСТОРИИ
+  // ==========================================
+  function renderStories() {
+    const bar = $('storiesBar');
+    bar.innerHTML = `
+      <div class="story-item" onclick="openStoryCamera()">
+        <div class="story-ring story-ring--add"><div class="story-inner">＋</div></div>
+        <div class="story-label">Добавить</div>
+      </div>
+    `;
+    DB.stories.forEach(s => {
+      const author = DB.users.find(u => u.phone === s.authorPhone);
+      if (!author) return;
+      const div = document.createElement('div');
+      div.className = 'story-item';
+      div.innerHTML = `
+        <div class="story-ring"><div class="story-inner" style="background:${author.color}">
+          ${s.image ? `<img src="${s.image}">` : s.video ? `<video src="${s.video}" muted></video>` : esc(initials(author.name))}
+        </div></div>
+        <div class="story-label">${esc(author.name.split(' ')[0])}</div>
+      `;
+      div.onclick = () => toast('Просмотр историй в разработке');
+      bar.appendChild(div);
+    });
+  }
+
+  window.openStoryCamera = () => {
+    openModal(`
+      <h3>Новая история</h3>
+      <video id="cameraStream" autoplay playsinline></video>
+      <canvas id="photoCanvas" class="hidden"></canvas>
+      <div class="camera-controls">
+        <button class="cam-btn" onclick="takePhoto()">📸</button>
+        <button class="cam-btn" onclick="startVideoRecord()" style="border-color:red;">🎥</button>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="stopStoryCamera()">Отмена</button>
+      </div>
+    `);
+    navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+      videoStream = stream;
+      $('cameraStream').srcObject = stream;
+    }).catch(() => toast('Нет доступа к камере'));
+  };
+
+  window.takePhoto = () => {
+    const video = $('cameraStream');
+    const canvas = $('photoCanvas');
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    window.stopStoryCamera();
+    publishStory(dataUrl, null);
+  };
+
+  window.startVideoRecord = () => {
+    toast('Запись видео (демо)');
+    window.stopStoryCamera();
+    publishStory(null, 'https://www.w3schools.com/html/mov_bbb.mp4');
+  };
+
+  window.stopStoryCamera = () => {
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    closeModal();
+  };
+
+  async function publishStory(image, video) {
+    await fetch(`${API}/story`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorPhone: currentUser.phone, image, video }) });
+    toast('История опубликована!'); loadDB();
+  }
 
   // ==========================================
   //  ЧАТЫ И ПОИСК
@@ -495,7 +590,6 @@
     if (e.target.tagName === 'SPAN') { $('messageInput').value += e.target.textContent; $('messageInput').focus(); }
   };
 
-  // Запись голосового
   $('voiceBtn').onclick = async () => {
     if (!activeChatId) return toast('Откройте чат');
     if (mediaRecorder && mediaRecorder.state === 'recording') {
@@ -521,10 +615,8 @@
     } catch (e) { toast('Нет доступа к микрофону'); }
   };
 
-  // Запись видеокружка
   $('videoNoteBtn').onclick = () => {
     if (!activeChatId) return toast('Откройте чат');
-    
     openModal(`
       <h3>Записать видеокружок</h3>
       <video id="previewVideo" autoplay playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover; display:block; margin:0 auto; transform:scaleX(-1); background:#000;"></video>
@@ -533,15 +625,12 @@
         <button class="modal-btn primary" id="sendVideoBtn">Отправить</button>
       </div>
     `);
-    
     navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
-      videoStream = s;
-      $('previewVideo').srcObject = s;
+      videoStream = s; $('previewVideo').srcObject = s;
     }).catch(() => toast('Нет доступа к камере'));
 
     $('sendVideoBtn').onclick = () => {
       stopVideoNote();
-      // В демо-версии отправляем тестовое видео (чтобы не перегружать сервер base64)
       sendMessage('video', 'https://www.w3schools.com/html/mov_bbb.mp4');
     };
   };
@@ -552,7 +641,7 @@
   };
 
   // ==========================================
-  //  БОКОВЫЕ ПАНЕЛИ (Меню и Профиль)
+  //  БОКОВЫЕ ПАНЕЛИ
   // ==========================================
   $('menuBtn').onclick = () => { openSidePanelMenu(); $('sidePanel').classList.add('open'); };
   $('closeSidePanelBtn').onclick = () => $('sidePanel').classList.remove('open');
@@ -573,10 +662,10 @@
       <div class="menu-item" onclick="openSettingsPanel()">
         <div class="menu-item__icon">⚙️</div><div class="menu-item__text">Настройки</div>
       </div>
-      <div class="menu-item" onclick="toast('Истории скоро появятся!')">
+      <div class="menu-item" onclick="$('sidePanel').classList.remove('open'); openStoryCamera()">
         <div class="menu-item__icon">⭕</div><div class="menu-item__text">Добавить историю</div>
       </div>
-      <div class="menu-item" onclick="toast('Смена аккаунта...')">
+      <div class="menu-item" onclick="openSwitchAccount()">
         <div class="menu-item__icon">🔄</div><div class="menu-item__text">Сменить аккаунт</div>
       </div>
       <div class="menu-item" style="color:var(--danger);" onclick="localStorage.removeItem('lumen_user'); location.reload();">
@@ -585,25 +674,50 @@
     `;
   }
 
+  window.openSwitchAccount = async () => {
+    const res = await fetch(`${API}/db`);
+    const db = await res.json();
+    
+    $('sidePanelTitle').textContent = 'Аккаунты';
+    $('sidePanelBody').innerHTML = db.users.map(u => `
+      <div class="menu-item" onclick="switchTo('${u.phone}')">
+        <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">${esc(initials(u.name))}</div>
+        <div class="menu-item__text">
+          <div>${esc(u.name)} ${u.phone === currentUser.phone ? '✓' : ''}</div>
+          <div style="font-size:12px; color:var(--text-muted);">${esc(u.phone)}</div>
+        </div>
+      </div>
+    `).join('') + `
+      <div class="menu-item" style="color:var(--accent-light); margin-top:20px;" onclick="localStorage.removeItem('lumen_user'); location.reload();">
+        <div class="menu-item__icon">➕</div><div class="menu-item__text">Добавить аккаунт</div>
+      </div>
+    `;
+  };
+
+  window.switchTo = (phone) => {
+    const user = DB.users.find(u => u.phone === phone);
+    if (user) { showApp(user); toast('Аккаунт переключен'); }
+  };
+
   window.openSettingsPanel = () => {
     $('sidePanelTitle').textContent = 'Настройки';
     $('sidePanelBody').innerHTML = `
-      <div class="settings-row">
+      <div class="settings-row" style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid var(--border);">
         <label>Тема</label>
-        <select id="setTheme">
+        <select id="setTheme" style="background:var(--bg); color:var(--text); border:1px solid var(--border); padding:5px; border-radius:6px;">
           <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Тёмная</option>
           <option value="light" ${theme === 'light' ? 'selected' : ''}>Светлая</option>
         </select>
       </div>
-      <div class="settings-row">
+      <div class="settings-row" style="display:flex; justify-content:space-between; padding:15px 0; border-bottom:1px solid var(--border);">
         <label>Акцент</label>
-        <input type="color" id="setAccent" value="#5288c1">
+        <input type="color" id="setAccent" value="#5288c1" style="background:var(--bg); border:1px solid var(--border); padding:2px; border-radius:6px;">
       </div>
-      <div class="swatches" style="margin-bottom:20px;">
-        <div class="swatch" style="background:#5288c1" onclick="setAccent('#5288c1')"></div>
-        <div class="swatch" style="background:#e57373" onclick="setAccent('#e57373')"></div>
-        <div class="swatch" style="background:#81c784" onclick="setAccent('#81c784')"></div>
-        <div class="swatch" style="background:#ba68c8" onclick="setAccent('#ba68c8')"></div>
+      <div class="swatches" style="display:flex; gap:8px; margin-top:10px;">
+        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#5288c1;" onclick="setAccent('#5288c1')"></div>
+        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#e57373;" onclick="setAccent('#e57373')"></div>
+        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#81c784;" onclick="setAccent('#81c784')"></div>
+        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#ba68c8;" onclick="setAccent('#ba68c8')"></div>
       </div>
     `;
     $('setTheme').onchange = (e) => { 
@@ -621,13 +735,20 @@
     
     $('sidePanelBody').innerHTML = `
       <div style="text-align:center; margin-bottom:20px;">
-        <label style="cursor:pointer;">
+        <!-- Смена аватарки -->
+        ${isMe ? `
+          <label for="avatarInput" style="cursor:pointer; display:inline-block;">
+            <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
+              ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+            </div>
+            <div style="font-size:12px; color:var(--accent-light); margin-top:8px;">Сменить фото</div>
+          </label>
+          <input type="file" id="avatarInput" accept="image/*" class="hidden">
+        ` : `
           <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
             ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
           </div>
-          ${isMe ? `<div style="font-size:12px; color:var(--accent-light); margin-top:8px;">Сменить фото</div>` : ''}
-          ${isMe ? `<input type="file" id="avatarInput" accept="image/*" class="hidden">` : ''}
-        </label>
+        `}
         <h2 style="margin-top:10px;">${esc(u.name)}</h2>
         <p style="color:var(--text-muted);">${esc(u.phone)}</p>
       </div>
@@ -643,10 +764,16 @@
         await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, name: $('pName').value }) });
         toast('Сохранено'); loadDB();
       };
+      // Обработчик смены аватарки
       $('avatarInput').onchange = (e) => {
         const file = e.target.files[0]; if (!file) return;
         const reader = new FileReader();
-        reader.onload = async (ev) => { await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, avatar: ev.target.result }) }); loadDB(); toast('Фото обновлено'); };
+        reader.onload = async (ev) => { 
+          await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, avatar: ev.target.result }) }); 
+          loadDB(); toast('Фото обновлено'); 
+          // Небольшой хак, чтобы обновить картинку в панели
+          setTimeout(() => openProfilePanel(u.phone), 500);
+        };
         reader.readAsDataURL(file);
       };
     }
@@ -658,7 +785,7 @@
   };
 
   // ==========================================
-  //  ДОБАВЛЕНИЕ ДРУГА (Поиск)
+  //  ДОБАВЛЕНИЕ ДРУГА
   // ==========================================
   $('newChatBtn').onclick = () => {
     openModal(`
@@ -701,7 +828,7 @@
   if (socket) {
     socket.on('new_message', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
     socket.on('messages_read', () => { if (currentUser) loadDB(); });
-    socket.on('msg_deleted', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
+    socket.on('new_story', () => { if (currentUser) loadDB(); });
   }
 
   const savedUser = JSON.parse(localStorage.getItem('lumen_user'));
