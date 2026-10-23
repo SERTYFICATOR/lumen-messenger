@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Lumen — мессенджер</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg: #0e1621; --bg-secondary: #17212b; --bg-hover: #202b36;
+    --bg-active: #2b5278; --text: #e9edf0; --text-muted: #7d8b99;
+    --accent: #5288c1; --accent-light: #64b5f6;
+    --bubble-in: #182533; --bubble-out: #2b5278;
+    --border: #101921; --danger: #e57373; --radius: 12px;
+    --chat-bg: #0e1621;
+  }
+  /* Светлая тема */
+  body.theme-light {
+    --bg: #ffffff; --bg-secondary: #f4f4f5; --bg-hover: #e8e8ea;
+    --bg-active: #5288c1; --text: #1a1a1a; --text-muted: #7a7a7a;
+    --border: #e2e2e4; --bubble-in: #ffffff; --bubble-out: #e1ffc7;
+    --chat-bg: #f0f2f5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 15px; }
+  .hidden { display: none !important; }
+  button { cursor: pointer; border: none; background: transparent; color: inherit; }
+
+  /* AUTH */
+  .auth { position: fixed; inset: 0; z-index: 500; background: radial-gradient(circle at 30% 20%, #1c2b3a, #0e1621 70%); display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .auth__card { background: var(--bg-secondary); border-radius: 18px; padding: 32px 28px; width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  .auth__logo { font-size: 36px; font-weight: 700; text-align: center; background: linear-gradient(135deg, var(--accent-light), var(--accent)); -webkit-background-clip: text; color: transparent; margin-bottom: 6px; }
+  .auth__subtitle { text-align: center; color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
+  .auth__step { display: flex; flex-direction: column; gap: 8px; }
+  .auth__label { font-size: 12.5px; color: var(--accent-light); font-weight: 500; margin-top: 8px; }
+  .auth__step input { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px; outline: none; }
+  .auth__step input:focus { border-color: var(--accent); }
+  .auth__btn { background: var(--accent); color: #fff; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 12px; }
+  .auth__link { color: var(--accent-light); font-size: 13.5px; margin-top: 10px; }
+  .auth__hint { font-size: 11.5px; color: var(--text-muted); text-align: center; margin-top: 8px; }
+
+  /* APP */
+  .app-inner { display: flex; height: 100vh; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; }
+  
+  /* SIDEBAR */
+  .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 20; }
+  .sidebar__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 20px; padding: 6px 12px; }
+  .search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; }
+  .icon-btn { font-size: 18px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+  .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
+  
+  /* CHAT LIST */
+  .chat-list { list-style: none; overflow-y: auto; flex: 1; }
+  .chat-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; position: relative; }
+  .chat-item:hover { background: var(--bg-hover); }
+  .chat-item.active { background: var(--bg-active); }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 18px; color: #fff; flex-shrink: 0; overflow: hidden; }
+  .avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .chat-item__body { flex: 1; min-width: 0; }
+  .chat-item__top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .chat-item__name { font-weight: 500; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chat-item__time { font-size: 12px; color: var(--text-muted); }
+  .chat-item__preview { font-size: 13.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .unread-badge { background: var(--accent); color: #fff; font-size: 12px; font-weight: 600; min-width: 20px; height: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+  .pinned-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 14px; display: none; }
+  .chat-item.pinned .pinned-icon { display: block; }
+
+  /* NAV */
+  .sidebar__nav { display: flex; border-top: 1px solid var(--border); background: var(--bg-secondary); }
+  .nav-btn { flex: 1; color: var(--text-muted); padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 18px; }
+  .nav-btn span { font-size: 10px; }
+  .nav-btn.active { color: var(--accent-light); }
+
+  /* CHAT WINDOW */
+  .chat { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; transition: transform 0.3s ease; }
+  .chat__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); }
+  .chat__empty-logo { font-size: 48px; font-weight: 700; background: linear-gradient(135deg, var(--accent-light), var(--accent)); -webkit-background-clip: text; color: transparent; }
+  
+  .chat__window { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .chat__header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+  .chat__header .avatar { width: 40px; height: 40px; font-size: 16px; }
+  .chat__name { font-weight: 600; font-size: 15px; }
+  .chat__status { font-size: 12px; color: var(--accent-light); }
+  .back-btn { display: none; font-size: 22px; margin-right: -5px; }
+
+  /* MESSAGES */
+  .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  .msg { max-width: 65%; display: flex; flex-direction: column; position: relative; }
+  .msg.in { align-self: flex-start; }
+  .msg.out { align-self: flex-end; align-items: flex-end; }
+  .bubble { padding: 8px 12px; border-radius: var(--radius); font-size: 14.5px; line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; position: relative; }
+  .msg.in .bubble { background: var(--bubble-in); border-bottom-left-radius: 4px; }
+  .msg.out .bubble { background: var(--bubble-out); border-bottom-right-radius: 4px; }
+  .msg__meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
+  .msg__meta .check { color: var(--accent-light); }
+  
+  .msg-bubble-voice { display: flex; align-items: center; gap: 10px; padding: 4px; }
+  .voice-play-btn { background: var(--accent); color: #fff; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+  .voice-wave { display: flex; align-items: center; gap: 2px; height: 20px; }
+  .voice-wave div { width: 3px; background: var(--text-muted); border-radius: 2px; }
+  .msg.out .voice-wave div { background: rgba(255,255,255,0.7); }
+  
+  /* Кружки (видео) */
+  .video-note { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; overflow: hidden; border: 2px solid var(--accent); }
+  .video-note video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+
+  /* COMPOSER */
+  .composer { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--bg-secondary); border-top: 1px solid var(--border); position: relative; }
+  .composer input { flex: 1; background: var(--bg); border: none; outline: none; color: var(--text); font-size: 15px; padding: 10px 16px; border-radius: 20px; }
+  .send-btn { background: var(--accent); color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  
+  /* Эмодзи панель */
+  .emoji-panel { position: absolute; bottom: 65px; left: 10px; right: 10px; background: var(--bg-secondary); border-radius: 12px; padding: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; max-height: 200px; overflow-y: auto; z-index: 50; }
+  .emoji-panel span { font-size: 24px; cursor: pointer; text-align: center; border-radius: 6px; }
+  .emoji-panel span:hover { background: var(--bg-hover); }
+
+  /* RECORDING OVERLAY */
+  .recording-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #fff; }
+  .recording-timer { font-size: 28px; font-weight: bold; }
+  .recording-btn { width: 70px; height: 70px; border-radius: 50%; background: red; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+  .recording-cancel { position: absolute; top: 20px; right: 20px; font-size: 20px; color: #fff; }
+
+  /* SETTINGS & PANELS */
+  .profile-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 380px; background: var(--bg-secondary); border-left: 1px solid var(--border); z-index: 60; display: flex; flex-direction: column; transition: transform 0.3s ease; }
+  .profile-panel__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .profile-panel__body { flex: 1; overflow-y: auto; padding: 16px; }
+  .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .settings-row label { font-size: 14.5px; }
+  .settings-row select, .settings-row input[type="range"], .settings-row input[type="color"] { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 4px; outline: none; }
+  .swatches { display: flex; gap: 8px; margin-top: 10px; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .swatch.active { border-color: #fff; }
+  
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
+  .modal { background: var(--bg-secondary); border-radius: 14px; padding: 24px; width: 90%; max-width: 420px; }
+  .modal h3 { margin-bottom: 16px; }
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
+  .modal-field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); outline: none; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .modal-btn { padding: 10px 16px; border-radius: 8px; font-weight: 500; }
+  .modal-btn.primary { background: var(--accent); color: #fff; }
+  
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--bg-active); color: #fff; padding: 12px 22px; border-radius: 24px; z-index: 1000; font-size: 14px; }
+  .search-result { padding: 10px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; cursor: pointer; }
+  .search-result:hover { background: var(--bg-hover); }
+
+  /* ===== МОБИЛЬНЫЙ АДАПТИВ ===== */
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; min-width: 100%; border: none; }
+    .chat { position: absolute; inset: 0; z-index: 30; transform: translateX(100%); }
+    .chat.open { transform: translateX(0); }
+    .profile-panel { width: 100%; transform: translateX(100%); z-index: 40; }
+    .profile-panel.open { transform: translateX(0); }
+    .back-btn { display: flex; }
+    .msg { max-width: 85%; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- ЭКРАН ВХОДА -->
+  <div class="auth hidden" id="authScreen">
+    <div class="auth__card">
+      <div class="auth__logo">Lumen</div>
+      <p class="auth__subtitle">Войдите по номеру телефона</p>
+      <div class="auth__step" id="authStepPhone">
+        <label class="auth__label">Номер телефона</label>
+        <input type="tel" id="authPhone" placeholder="+7 900 000-00-00">
+        <button class="auth__btn" id="authSendCode">Продолжить</button>
+      </div>
+      <div class="auth__step hidden" id="authStepPassword">
+        <label class="auth__label">Облачный пароль</label>
+        <input type="password" id="authPassword" placeholder="Введите пароль">
+        <button class="auth__btn" id="authVerifyPassword">Войти</button>
+        <button class="auth__link" id="authBackFromPass">← Назад</button>
+      </div>
+      <div class="auth__step hidden" id="authStepCode">
+        <label class="auth__label">Введите код из 5 цифр</label>
+        <input type="text" id="authCode" placeholder="•••••" maxlength="5" inputmode="numeric">
+        <p class="auth__hint" id="authCodeHint"></p>
+        <button class="auth__btn" id="authVerifyCode">Войти</button>
+        <button class="auth__link" id="authBack">← Назад</button>
+      </div>
+      <div class="auth__step hidden" id="authStepName">
+        <label class="auth__label">Как вас зовут?</label>
+        <input type="text" id="authName" placeholder="Имя">
+        <label class="auth__label">Username</label>
+        <input type="text" id="authUsername" placeholder="username">
+        <button class="auth__btn" id="authFinish">Завершить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ПРИЛОЖЕНИЕ -->
+  <div class="app-inner hidden" id="appInner">
+    
+    <!-- Сайдбар (Список чатов) -->
+    <aside class="sidebar">
+      <header class="sidebar__header">
+        <button class="icon-btn" id="menuBtn">☰</button>
+        <div class="search">
+          <input type="text" id="searchInput" placeholder="Поиск людей...">
+        </div>
+        <button class="icon-btn" id="newChatBtn">✏️</button>
+      </header>
+      <ul class="chat-list" id="chatList"></ul>
+      <nav class="sidebar__nav">
+        <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
+        <button class="nav-btn" data-tab="profile">👤<span>Настройки</span></button>
+      </nav>
+    </aside>
+
+    <!-- Окно чата -->
+    <main class="chat" id="chatArea">
+      <div class="chat__empty" id="chatEmpty">
+        <div class="chat__empty-logo">Lumen</div>
+        <p>Выберите чат или найдите друга</p>
+      </div>
+      <div class="chat__window hidden" id="chatWindow">
+        <header class="chat__header">
+          <button class="icon-btn back-btn" id="mobileBackBtn">←</button>
+          <div class="avatar small" id="chatAvatar" onclick="openProfilePanel(activeChatId)"></div>
+          <div>
+            <div class="chat__name" id="chatName"></div>
+            <div class="chat__status" id="chatStatus">в сети</div>
+          </div>
+        </header>
+        <div class="messages" id="messages"></div>
+        
+        <footer class="composer">
+          <button class="icon-btn" id="emojiBtn">😊</button>
+          <input type="text" id="messageInput" placeholder="Написать сообщение...">
+          <button class="icon-btn" id="voiceBtn">🎤</button>
+          <button class="send-btn" id="sendBtn">➤</button>
+        </footer>
+
+        <!-- Панель эмодзи -->
+        <div class="emoji-panel hidden" id="emojiPanel">
+          <span>😀</span><span>😂</span><span>🥰</span><span>😎</span><span>🤔</span><span>😴</span><span>🤯</span><span>😭</span>
+          <span>👍</span><span>👎</span><span>❤️</span><span>🔥</span><span>🎉</span><span>💩</span><span>💯</span><span>🙏</span>
+          <span>🍻</span><span>☕</span><span>🍕</span><span>⚽</span><span>🎮</span><span>💻</span><span>📱</span><span>💡</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Панель настроек / профиля -->
+    <aside class="profile-panel" id="profilePanel">
+      <header class="profile-panel__header">
+        <button class="icon-btn" id="closeProfileBtn">✕</button>
+        <h3 id="profilePanelTitle">Меню</h3>
+      </header>
+      <div class="profile-panel__body" id="profileBody"></div>
+    </aside>
+  </div>
+
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modal"></div>
+  </div>
+  <div class="toast hidden" id="toast"></div>
+</div>
+
+<script>
+  // ==========================================
+  //  ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+  // ==========================================
+  const API = '/api';
+  let socket = null;
+  try { if (typeof io !== 'undefined') socket = io(); } catch (e) {}
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const initials = n => n.trim().split(/\s+/).map(w => w[0]).slice(0,2).join('').toUpperCase() || '?';
+  const randColor = () => ['#e57373','#64b5f6','#81c784','#ffb74d','#ba68c8','#4db6ac'][Math.floor(Math.random()*6)];
+
+  let currentUser = null;
+  let DB = { users: [], messages: [], stories: [] };
+  let activeChatId = null;
+  let pinnedChats = JSON.parse(localStorage.getItem('pinned') || '[]');
+  let theme = localStorage.getItem('theme') || 'dark';
+
+  // Применяем тему
+  if (theme === 'light') document.body.classList.add('theme-light');
+
+  // ==========================================
+  //  ВСПОМОГАТЕЛЬНЫЕ
+  // ==========================================
+  function toast(msg) {
+    const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
+    setTimeout(() => t.classList.add('hidden'), 3000);
+  }
+  function openModal(html) { $('modal').innerHTML = html; $('modalOverlay').classList.remove('hidden'); }
+  function closeModal() { $('modalOverlay').classList.add('hidden'); }
+  $('modalOverlay').onclick = e => { if (e.target.id === 'modalOverlay') closeModal(); };
+
+  async function loadDB() {
+    try {
+      const res = await fetch(`${API}/db`); DB = await res.json();
+      renderChats();
+    } catch (e) { console.error(e); }
+  }
+
+  // ==========================================
+  //  АВТОРИЗАЦИЯ
+  // ==========================================
+  function showAuthScreen() {
+    $('authScreen').classList.remove('hidden'); $('appInner').classList.add('hidden');
+    ['Phone', 'Password', 'Code', 'Name'].forEach(s => $('authStep' + s).classList.add('hidden'));
+    $('authStepPhone').classList.remove('hidden');
+  }
+
+  function showApp(user) {
+    currentUser = user; localStorage.setItem('lumen_user', JSON.stringify(user));
+    $('authScreen').classList.add('hidden'); $('appInner').classList.remove('hidden');
+    if (socket) socket.emit('join', currentUser.phone);
+    loadDB();
+  }
+
+  let pendingPhone = '', pendingCode = '';
+
+  $('authSendCode').onclick = async () => {
+    const phone = $('authPhone').value.trim(); if (!phone) return;
+    try {
+      const res = await fetch(`${API}/auth/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
+      const data = await res.json();
+      pendingPhone = phone; $('authStepPhone').classList.add('hidden');
+      if (data.exists && data.requiresPassword) $('authStepPassword').classList.remove('hidden');
+      else if (data.exists) showApp(data.user);
+      else {
+        pendingCode = String(Math.floor(10000 + Math.random() * 90000));
+        $('authCodeHint').textContent = `Код: ${pendingCode}`; $('authStepCode').classList.remove('hidden');
+      }
+    } catch (e) { toast('Ошибка сервера'); }
+  };
+
+  $('authVerifyPassword').onclick = async () => {
+    const password = $('authPassword').value.trim();
+    const res = await fetch(`${API}/auth/verify-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: pendingPhone, password }) });
+    const data = await res.json();
+    if (res.ok) showApp(data.user); else toast(data.error);
+  };
+
+  $('authBackFromPass').onclick = () => { $('authStepPassword').classList.add('hidden'); $('authStepPhone').classList.remove('hidden'); };
+  $('authBack').onclick = () => { $('authStepCode').classList.add('hidden'); $('authStepPhone').classList.remove('hidden'); };
+
+  $('authVerifyCode').onclick = () => {
+    if ($('authCode').value.trim() !== pendingCode) return toast('Неверный код');
+    $('authStepCode').classList.add('hidden'); $('authStepName').classList.remove('hidden');
+  };
+
+  $('authFinish').onclick = async () => {
+    const name = $('authName').value.trim(), username = $('authUsername').value.trim();
+    if (!name || !username) return toast('Заполните поля');
+    const res = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: pendingPhone, name, username, color: randColor() }) });
+    const data = await res.json();
+    if (res.ok) showApp(data.user); else toast(data.error);
+  };
+
+  // ==========================================
+  //  ЧАТЫ И ПОИСК
+  // ==========================================
+  $('searchInput').oninput = async (e) => {
+    const q = e.target.value.trim();
+    if (!q) { renderChats(); return; }
+    
+    const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const users = await res.json();
+    
+    const list = $('chatList'); list.innerHTML = '';
+    if (!users.length) return list.innerHTML = '<p style="padding:20px; color:var(--text-muted); text-align:center;">Никого не найдено</p>';
+    
+    users.forEach(u => {
+      if (u.phone === currentUser.phone) return;
+      const li = document.createElement('li'); li.className = 'chat-item';
+      li.innerHTML = `
+        <div class="avatar" style="background:${u.color}">${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}</div>
+        <div class="chat-item__body">
+          <div class="chat-item__name">${esc(u.name)}</div>
+          <div class="chat-item__preview">@${esc(u.username)} · ${esc(u.phone)}</div>
+        </div>`;
+      li.onclick = () => { e.target.value = ''; openChat(u.phone); };
+      list.appendChild(li);
+    });
+  };
+
+  function renderChats() {
+    if (!currentUser) return;
+    const list = $('chatList'); list.innerHTML = '';
+    const contactPhones = new Set();
+    DB.messages.forEach(m => {
+      if (m.from === currentUser.phone) contactPhones.add(m.to);
+      if (m.to === currentUser.phone) contactPhones.add(m.from);
+    });
+
+    const chatArray = [];
+    contactPhones.forEach(phone => {
+      const contact = DB.users.find(u => u.phone === phone);
+      if (!contact) return;
+      const msgs = DB.messages.filter(m => (m.from === currentUser.phone && m.to === phone) || (m.from === phone && m.to === currentUser.phone)).sort((a,b) => a.timestamp - b.timestamp);
+      const last = msgs[msgs.length - 1];
+      const unread = msgs.filter(m => m.from === phone && !m.read).length;
+      chatArray.push({ contact, last, unread });
+    });
+
+    // Сортируем: сначала закрепленные, потом по времени
+    chatArray.sort((a, b) => {
+      const aPinned = pinnedChats.includes(a.contact.phone);
+      const bPinned = pinnedChats.includes(b.contact.phone);
+      if (aPinned && !bPinned) return -1;
+      if (!aPinned && bPinned) return 1;
+      return (b.last ? b.last.timestamp : 0) - (a.last ? a.last.timestamp : 0);
+    });
+
+    chatArray.forEach(item => {
+      const { contact, last, unread } = item;
+      const li = document.createElement('li');
+      li.className = 'chat-item' + (activeChatId === contact.phone ? ' active' : '') + (pinnedChats.includes(contact.phone) ? ' pinned' : '');
+      
+      li.innerHTML = `
+        <div class="avatar" style="background:${contact.color}">${contact.avatar ? `<img src="${contact.avatar}">` : esc(initials(contact.name))}</div>
+        <div class="chat-item__body">
+          <div class="chat-item__top">
+            <span class="chat-item__name">${esc(contact.name)}</span>
+            <span class="chat-item__time">${last ? last.time : ''}</span>
+          </div>
+          <div class="chat-item__preview">${last ? (last.from === currentUser.phone ? 'Вы: ' : '') + (last.type === 'voice' ? '🎤 Голосовое' : last.type === 'video' ? '⭕ Кружок' : esc(last.text)) : ''}</div>
+        </div>
+        <span class="pinned-icon">📌</span>
+        ${unread ? `<span class="unread-badge">${unread}</span>` : ''}
+      `;
+      
+      // Клик - открыть
+      li.onclick = () => openChat(contact.phone);
+      // Правый клик - закрепить
+      li.oncontextmenu = (e) => {
+        e.preventDefault();
+        if (pinnedChats.includes(contact.phone)) pinnedChats = pinnedChats.filter(p => p !== contact.phone);
+        else pinnedChats.push(contact.phone);
+        localStorage.setItem('pinned', JSON.stringify(pinnedChats));
+        renderChats();
+      };
+      list.appendChild(li);
+    });
+  }
+
+  async function openChat(phone) {
+    const contact = DB.users.find(u => u.phone === phone);
+    activeChatId = phone;
+    if (window.innerWidth <= 768) $('chatArea').classList.add('open');
+
+    try { await fetch(`${API}/read`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: phone, to: currentUser.phone }) }); } catch(e) {}
+
+    $('chatEmpty').classList.add('hidden'); $('chatWindow').classList.remove('hidden');
+    $('chatName').textContent = contact.name;
+    $('chatStatus').textContent = 'был(а) недавно';
+    $('chatAvatar').innerHTML = contact.avatar ? `<img src="${contact.avatar}">` : esc(initials(contact.name));
+    $('chatAvatar').style.background = contact.color;
+    
+    await loadDB(); renderMessages(contact);
+    $('messageInput').focus();
+  }
+
+  $('mobileBackBtn').onclick = () => { $('chatArea').classList.remove('open'); activeChatId = null; renderChats(); };
+
+  // ==========================================
+  //  СООБЩЕНИЯ (Текст, Голос, Видео)
+  // ==========================================
+  function renderMessages(contact) {
+    const box = $('messages'); box.innerHTML = '';
+    DB.messages.filter(m => (m.from === currentUser.phone && m.to === contact.phone) || (m.from === contact.phone && m.to === currentUser.phone))
+      .sort((a,b) => a.timestamp - b.timestamp)
+      .forEach(m => {
+        const isOut = m.from === currentUser.phone;
+        let content = '';
+        
+        if (m.type === 'voice') {
+          content = `<div class="msg-bubble-voice"><div class="voice-play-btn">▶</div><div class="voice-wave">${Array(8).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*100)}%"></div>`).join('')}</div><span style="font-size:12px; opacity:0.7">0:0${Math.floor(Math.random()*9)+1}</span></div>`;
+        } else if (m.type === 'video') {
+          content = `<div class="video-note"><video src="${m.text}" autoplay loop></video></div>`;
+        } else {
+          content = esc(m.text);
+        }
+
+        const div = document.createElement('div');
+        div.className = `msg ${isOut ? 'out' : 'in'}`;
+        div.innerHTML = `
+          <div class="bubble">${content}</div>
+          <div class="msg__meta">
+            <span>${m.time}</span>
+            ${isOut ? `<span class="check">✓✓</span>` : ''}
+            <button onclick="deleteMsg('${m.id}')" style="margin-left:5px; color:var(--danger); font-size:12px;">✖</button>
+          </div>`;
+        box.appendChild(div);
+      });
+    box.scrollTop = box.scrollHeight;
+  }
+
+  window.deleteMsg = async (id) => {
+    await fetch(`${API}/delete-message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+  };
+
+  async function sendMessage(type = 'text', textContent = '') {
+    const text = type === 'text' ? $('messageInput').value.trim() : textContent;
+    if (!text || !activeChatId) return;
+    
+    if (type === 'text') $('messageInput').value = '';
+    
+    try {
+      await fetch(`${API}/message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: currentUser.phone, to: activeChatId, text, type }) });
+      await loadDB();
+      renderMessages(DB.users.find(u => u.phone === activeChatId));
+    } catch (e) { toast('Ошибка отправки'); }
+  }
+
+  $('sendBtn').onclick = () => sendMessage('text');
+  $('messageInput').onkeydown = e => { if (e.key === 'Enter') sendMessage('text'); };
+
+  // ==========================================
+  //  ФИШКИ: Эмодзи, Голосовые, Кружки
+  // ==========================================
+  const emojiPanel = $('emojiPanel');
+  $('emojiBtn').onclick = () => emojiPanel.classList.toggle('hidden');
+  emojiPanel.onclick = (e) => {
+    if (e.target.tagName === 'SPAN') {
+      $('messageInput').value += e.target.textContent;
+      $('messageInput').focus();
+    }
+  };
+
+  // Голосовое сообщение
+  $('voiceBtn').onclick = () => {
+    if (!activeChatId) return toast('Откройте чат');
+    
+    openModal(`
+      <h3>Голосовое сообщение</h3>
+      <p style="text-align:center; font-size:40px; margin:20px 0;">🎤</p>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeModal()">Отмена</button>
+        <button class="modal-btn primary" id="recordVoiceBtn">Отправить (Тест)</button>
+      </div>
+    `);
+    
+    $('recordVoiceBtn').onclick = () => {
+      closeModal();
+      sendMessage('voice', 'voice_data_here');
+    };
+  };
+
+  // Кружок (Видео)
+  window.openVideoNote = () => {
+    openModal(`
+      <h3>Запись кружка</h3>
+      <video id="previewVideo" autoplay playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover; display:block; margin:0 auto; transform:scaleX(-1); background:#000;"></video>
+      <div class="modal-actions">
+        <button class="modal-btn" onclick="closeModal(); stopStream()">Отмена</button>
+        <button class="modal-btn primary" id="sendVideoBtn">Записать</button>
+      </div>
+    `);
+    
+    let stream;
+    navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
+      stream = s;
+      $('previewVideo').srcObject = s;
+    }).catch(() => toast('Нет доступа к камере'));
+
+    window.stopStream = () => { if(stream) stream.getTracks().forEach(t => t.stop()); };
+
+    $('sendVideoBtn').onclick = () => {
+      window.stopStream(); closeModal();
+      sendMessage('video', 'https://www.w3schools.com/html/mov_bbb.mp4'); // Демо-видео
+    };
+  };
+
+  // ==========================================
+  //  НАСТРОЙКИ И ПРОФИЛЬ
+  // ==========================================
+  $('menuBtn').onclick = () => openProfilePanel();
+  $('closeProfileBtn').onclick = () => $('profilePanel').classList.remove('open');
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.tab === 'profile') openProfilePanel();
+      else $('profilePanel').classList.remove('open');
+    };
+  });
+
+  function openProfilePanel(viewUserPhone = null) {
+    $('profilePanel').classList.add('open');
+    const isMe = !viewUserPhone || viewUserPhone === currentUser.phone;
+    const u = isMe ? currentUser : DB.users.find(x => x.phone === viewUserPhone);
+    
+    if (isMe) {
+      $('profilePanelTitle').textContent = 'Настройки';
+      $('profileBody').innerHTML = `
+        <div style="text-align:center; margin-bottom:20px;">
+          <label style="cursor:pointer;">
+            <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
+              ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+            </div>
+            <div style="font-size:12px; color:var(--accent-light); margin-top:8px;">Сменить фото</div>
+            <input type="file" id="avatarInput" accept="image/*" class="hidden">
+          </label>
+          <h2 style="margin-top:10px;">${esc(u.name)}</h2>
+          <p style="color:var(--text-muted);">${esc(u.phone)}</p>
+        </div>
+        
+        <div class="profile-field"><label>Имя</label><input id="pName" value="${esc(u.name)}"></div>
+        <button class="profile-save" id="pSave">Сохранить профиль</button>
+        
+        <div class="profile-section-title" style="margin-top:30px; font-size:12px; color:var(--text-muted);">ОФОРМЛЕНИЕ</div>
+        <div class="settings-row">
+          <label>Тема</label>
+          <select id="setTheme">
+            <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Тёмная</option>
+            <option value="light" ${theme === 'light' ? 'selected' : ''}>Светлая</option>
+          </select>
+        </div>
+        <div class="settings-row">
+          <label>Акцент</label>
+          <input type="color" id="setAccent" value="#5288c1">
+        </div>
+        <div class="swatches" style="margin-bottom:20px;">
+          <div class="swatch" style="background:#5288c1" onclick="setAccent('#5288c1')"></div>
+          <div class="swatch" style="background:#e57373" onclick="setAccent('#e57373')"></div>
+          <div class="swatch" style="background:#81c784" onclick="setAccent('#81c784')"></div>
+          <div class="swatch" style="background:#ba68c8" onclick="setAccent('#ba68c8')"></div>
+        </div>
+
+        <div class="profile-section-title" style="margin-top:20px; font-size:12px; color:var(--text-muted);">ДЕЙСТВИЯ</div>
+        <div class="profile-item" style="padding:12px; cursor:pointer; color:var(--accent-light);" onclick="openVideoNote()">⭕ Записать видеокружок</div>
+        <div class="profile-item" style="padding:12px; cursor:pointer; color:var(--danger);" onclick="localStorage.removeItem('lumen_user'); location.reload();">🚪 Выйти из аккаунта</div>
+      `;
+      
+      $('pSave').onclick = async () => {
+        await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, name: $('pName').value }) });
+        toast('Сохранено'); loadDB();
+      };
+      $('setTheme').onchange = (e) => { theme = e.target.value; localStorage.setItem('theme', theme); if(theme==='light') document.body.classList.add('theme-light'); else document.body.classList.remove('theme-light'); };
+      $('setAccent').oninput = (e) => { document.documentElement.style.setProperty('--accent', e.target.value); };
+      $('avatarInput').onchange = (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => { await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, avatar: ev.target.result }) }); loadDB(); toast('Фото обновлено'); };
+        reader.readAsDataURL(file);
+      };
+    } else {
+      // Чужой профиль
+      $('profilePanelTitle').textContent = 'Профиль';
+      $('profileBody').innerHTML = `
+        <div style="text-align:center; margin-bottom:20px;">
+          <div class="avatar" style="width:100px; height:100px; margin:0 auto; font-size:40px; background:${u.color}">
+            ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+          </div>
+          <h2 style="margin-top:10px;">${esc(u.name)}</h2>
+          <p style="color:var(--accent-light);">@${esc(u.username)}</p>
+          <p style="color:var(--text-muted); margin-top:5px;">${esc(u.phone)}</p>
+        </div>
+      `;
+    }
+  }
+
+  window.setAccent = (color) => {
+    document.documentElement.style.setProperty('--accent', color);
+    if($('setAccent')) $('setAccent').value = color;
+  };
+
+  // Добавление друга
+  $('newChatBtn').onclick = () => {
+    openModal(`
+      <h3>Найти человека</h3>
+      <div class="modal-field">
+        <label>Введите имя, ник или телефон</label>
+        <input id="findInput" placeholder="Например, Иван или +7900...">
+      </div>
+      <div id="findResults" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
+      <div class="modal-actions"><button class="modal-btn" onclick="closeModal()">Закрыть</button></div>
+    `);
+    
+    let timeout;
+    $('findInput').oninput = (e) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(async () => {
+        const q = e.target.value.trim();
+        if (!q) return $('findResults').innerHTML = '';
+        const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+        const users = await res.json();
+        
+        $('findResults').innerHTML = users.filter(u => u.phone !== currentUser.phone).map(u => `
+          <div class="search-result" onclick="closeModal(); openChat('${u.phone}')">
+            <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">
+              ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+            </div>
+            <div>
+              <div style="font-weight:500;">${esc(u.name)}</div>
+              <div style="font-size:12px; color:var(--text-muted);">@${esc(u.username)} · ${esc(u.phone)}</div>
+            </div>
+          </div>
+        `).join('') || '<div style="padding:10px; text-align:center; color:var(--text-muted);">Никого не найдено</div>';
+      }, 300);
+    };
+  };
+
+  // ==========================================
+  //  СОКЕТЫ И СТАРТ
+  // ==========================================
+  if (socket) {
+    socket.on('new_message', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
+    socket.on('messages_read', () => { if (currentUser) loadDB(); });
+    socket.on('msg_deleted', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
+  }
+
+  const savedUser = JSON.parse(localStorage.getItem('lumen_user'));
+  if (savedUser) showApp(savedUser); else showAuthScreen();
+</script>
+</body>
+</html>
