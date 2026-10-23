@@ -42,8 +42,6 @@
 
   /* APP LAYOUT */
   .app-inner { display: flex; height: 100vh; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; }
-  
-  /* SIDEBAR */
   .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); z-index: 20; }
   .sidebar__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 20px; padding: 6px 12px; }
@@ -106,11 +104,14 @@
   .msg__meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
   .msg__meta .check { color: var(--accent-light); }
   
-  /* Кружки и Голосовые */
-  .video-note { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; overflow: hidden; border: 2px solid var(--accent); }
+  /* Кружки */
+  .video-note { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; overflow: hidden; border: 2px solid var(--accent); position: relative; }
   .video-note video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
-  .voice-msg { display: flex; align-items: center; gap: 10px; width: 180px; }
-  .voice-play { background: var(--accent); color: #fff; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  /* Голосовые */
+  .voice-msg { display: flex; align-items: center; gap: 10px; width: 180px; cursor: pointer; }
+  .voice-play { background: var(--accent); color: #fff; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.1s; }
+  .voice-play:active { transform: scale(0.9); }
   .voice-wave { display: flex; align-items: center; gap: 2px; height: 20px; flex: 1; }
   .voice-wave div { width: 3px; background: var(--text-muted); border-radius: 2px; }
   .msg.out .voice-wave div { background: rgba(255,255,255,0.7); }
@@ -124,6 +125,13 @@
   .emoji-panel { position: absolute; bottom: 65px; left: 10px; right: 10px; background: var(--bg-secondary); border-radius: 12px; padding: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; max-height: 200px; overflow-y: auto; z-index: 50; }
   .emoji-panel span { font-size: 24px; cursor: pointer; text-align: center; border-radius: 6px; }
   .emoji-panel span:hover { background: var(--bg-hover); }
+
+  /* ОВЕРЛЕЙ ЗАПИСИ */
+  .rec-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #fff; }
+  .rec-circle { width: 120px; height: 120px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 40px; border: 4px solid var(--accent); }
+  .rec-circle.recording { animation: pulse 1.5s infinite; border-color: red; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.5); } 70% { box-shadow: 0 0 0 20px rgba(255,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); } }
+  .rec-timer { font-size: 32px; font-weight: bold; }
 
   /* БОКОВАЯ ПАНЕЛЬ */
   .side-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 380px; background: var(--bg-secondary); border-right: 1px solid var(--border); z-index: 60; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
@@ -158,20 +166,13 @@
   .camera-controls { display: flex; justify-content: space-around; align-items: center; margin-top: 15px; }
   .cam-btn { width: 60px; height: 60px; border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 24px; }
 
-  /* ===== МОБИЛЬНЫЙ АДАПТИВ (ФИКСЫ) ===== */
   @media (max-width: 768px) {
-    /* Сайдбар и чат по очереди */
     .sidebar { width: 100%; min-width: 100%; border: none; }
     .chat { position: absolute; inset: 0; z-index: 30; transform: translateX(100%); }
     .chat.open { transform: translateX(0); }
-    
-    /* Выезжающая панель */
     .side-panel { width: 100%; z-index: 60; }
-    
     .back-btn { display: flex; }
     .msg { max-width: 85%; }
-    
-    /* Чуть больше отступы для пальцев */
     .chat-item { padding: 12px; }
     .composer { padding: 10px; }
   }
@@ -179,7 +180,6 @@
 </head>
 <body>
 <div class="app">
-  <!-- ЭКРАН ВХОДА -->
   <div class="auth hidden" id="authScreen">
     <div class="auth__card">
       <div class="auth__logo">Lumen</div>
@@ -212,7 +212,6 @@
     </div>
   </div>
 
-  <!-- ПРИЛОЖЕНИЕ -->
   <div class="app-inner hidden" id="appInner">
     <aside class="sidebar">
       <header class="sidebar__header">
@@ -233,6 +232,7 @@
       <ul class="chat-list" id="chatList"></ul>
       <nav class="sidebar__nav">
         <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
+        <button class="nav-btn" data-tab="friends">👥<span>Друзья</span></button>
         <button class="nav-btn" data-tab="profile">👤<span>Профиль</span></button>
       </nav>
     </aside>
@@ -268,7 +268,6 @@
       </div>
     </main>
 
-    <!-- ВЫЕЗЖАЮЩАЯ ПАНЕЛЬ СЛЕВА -->
     <aside class="side-panel" id="sidePanel">
       <header class="side-panel__header">
         <button class="icon-btn" id="closeSidePanelBtn">✕</button>
@@ -299,7 +298,10 @@
   let activeChatId = null;
   let pinnedChats = JSON.parse(localStorage.getItem('pinned') || '[]');
   let theme = localStorage.getItem('theme') || 'dark';
-  let mediaRecorder = null, audioChunks = [], videoStream = null;
+  
+  // Переменные для медиа
+  let voiceRecorder = null, voiceChunks = [], voiceTimerInt = null, voiceSeconds = 0;
+  let videoRecorder = null, videoChunks = [], videoStream = null, videoTimerInt = null, videoSeconds = 0;
 
   if (theme === 'light') document.body.classList.add('theme-light');
 
@@ -408,7 +410,6 @@
       <canvas id="photoCanvas" class="hidden"></canvas>
       <div class="camera-controls">
         <button class="cam-btn" onclick="takePhoto()">📸</button>
-        <button class="cam-btn" onclick="startVideoRecord()" style="border-color:red;">🎥</button>
       </div>
       <div class="modal-actions">
         <button class="modal-btn" onclick="stopStoryCamera()">Отмена</button>
@@ -427,13 +428,7 @@
     canvas.getContext('2d').drawImage(video, 0, 0);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
     window.stopStoryCamera();
-    publishStory(dataUrl, null);
-  };
-
-  window.startVideoRecord = () => {
-    toast('Запись видео (демо)');
-    window.stopStoryCamera();
-    publishStory(null, 'https://www.w3schools.com/html/mov_bbb.mp4');
+    publishStory(dataUrl);
   };
 
   window.stopStoryCamera = () => {
@@ -441,13 +436,13 @@
     closeModal();
   };
 
-  async function publishStory(image, video) {
-    await fetch(`${API}/story`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorPhone: currentUser.phone, image, video }) });
+  async function publishStory(image) {
+    await fetch(`${API}/story`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ authorPhone: currentUser.phone, image }) });
     toast('История опубликована!'); loadDB();
   }
 
   // ==========================================
-  //  ЧАТЫ И ПОИСК
+  //  ДРУЗЬЯ, ЧАТЫ И ПОИСК
   // ==========================================
   $('searchInput').oninput = async (e) => {
     const q = e.target.value.trim();
@@ -549,9 +544,9 @@
         let content = '';
         
         if (m.type === 'voice') {
-          content = `<div class="voice-msg"><div class="voice-play">▶</div><div class="voice-wave">${Array(8).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*80)+20}%"></div>`).join('')}</div><span style="font-size:11px;">0:0${Math.floor(Math.random()*9)+1}</span></div>`;
+          content = `<div class="voice-msg" onclick="playVoice(this, '${m.text}')"><div class="voice-play">▶</div><div class="voice-wave">${Array(10).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*80)+20}%"></div>`).join('')}</div></div>`;
         } else if (m.type === 'video') {
-          content = `<div class="video-note"><video src="${m.text}" autoplay loop></video></div>`;
+          content = `<div class="video-note"><video src="${m.text}" autoplay loop muted playsinline></video></div>`;
         } else {
           content = esc(m.text);
         }
@@ -566,6 +561,14 @@
       });
     box.scrollTop = box.scrollHeight;
   }
+
+  window.playVoice = (el, base64) => {
+    const audio = new Audio(base64);
+    const btn = el.querySelector('.voice-play');
+    btn.textContent = '⏸';
+    audio.play();
+    audio.onended = () => { btn.textContent = '▶'; };
+  };
 
   async function sendMessage(type = 'text', textContent = '') {
     const text = type === 'text' ? $('messageInput').value.trim() : textContent;
@@ -583,59 +586,125 @@
   $('messageInput').onkeydown = e => { if (e.key === 'Enter') sendMessage('text'); };
 
   // ==========================================
-  //  ЭМОДЗИ, ГОЛОСОВЫЕ И КРУЖКИ
+  //  ЭМОДЗИ
   // ==========================================
   $('emojiBtn').onclick = () => $('emojiPanel').classList.toggle('hidden');
   $('emojiPanel').onclick = (e) => {
     if (e.target.tagName === 'SPAN') { $('messageInput').value += e.target.textContent; $('messageInput').focus(); }
   };
 
+  // ==========================================
+  //  ГОЛОСОВОЕ СООБЩЕНИЕ (Запись)
+  // ==========================================
   $('voiceBtn').onclick = async () => {
     if (!activeChatId) return toast('Откройте чат');
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
-      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          sendMessage('voice', reader.result);
-          stream.getTracks().forEach(t => t.stop());
-        };
-        reader.readAsDataURL(blob);
-      };
-      mediaRecorder.start();
-      toast('🎤 Запись... Нажмите еще раз для отправки');
-    } catch (e) { toast('Нет доступа к микрофону'); }
-  };
-
-  $('videoNoteBtn').onclick = () => {
-    if (!activeChatId) return toast('Откройте чат');
+    
     openModal(`
-      <h3>Записать видеокружок</h3>
-      <video id="previewVideo" autoplay playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover; display:block; margin:0 auto; transform:scaleX(-1); background:#000;"></video>
-      <div class="modal-actions">
-        <button class="modal-btn" onclick="stopVideoNote()">Отмена</button>
-        <button class="modal-btn primary" id="sendVideoBtn">Отправить</button>
+      <div class="rec-overlay">
+        <div class="rec-circle recording" id="recCircle">🎤</div>
+        <div class="rec-timer" id="recTimer">0:00</div>
+        <div style="display:flex; gap:20px; margin-top:20px;">
+          <button class="modal-btn" onclick="cancelVoice()">Отмена</button>
+          <button class="modal-btn primary" onclick="stopVoice()">Отправить</button>
+        </div>
       </div>
     `);
-    navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
-      videoStream = s; $('previewVideo').srcObject = s;
-    }).catch(() => toast('Нет доступа к камере'));
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      voiceRecorder = new MediaRecorder(stream);
+      voiceChunks = [];
+      voiceSeconds = 0;
+      $('recTimer').textContent = '0:00';
+      
+      voiceRecorder.ondataavailable = e => voiceChunks.push(e.data);
+      voiceRecorder.onstop = () => {
+        const blob = new Blob(voiceChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => { sendMessage('voice', reader.result); stream.getTracks().forEach(t => t.stop()); };
+        reader.readAsDataURL(blob);
+      };
+      
+      voiceRecorder.start();
+      voiceTimerInt = setInterval(() => {
+        voiceSeconds++;
+        const m = Math.floor(voiceSeconds / 60);
+        const s = voiceSeconds % 60;
+        $('recTimer').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+      }, 1000);
+      
+    } catch (e) { closeModal(); toast('Нет доступа к микрофону'); }
+  };
 
-    $('sendVideoBtn').onclick = () => {
-      stopVideoNote();
-      sendMessage('video', 'https://www.w3schools.com/html/mov_bbb.mp4');
-    };
+  window.stopVoice = () => {
+    clearInterval(voiceTimerInt);
+    if (voiceRecorder) voiceRecorder.stop();
+    closeModal();
+  };
+
+  window.cancelVoice = () => {
+    clearInterval(voiceTimerInt);
+    if (voiceRecorder) { voiceRecorder.onstop = null; voiceRecorder.stop(); }
+    closeModal();
+  };
+
+  // ==========================================
+  //  ВИДЕОКРУЖОК (Запись)
+  // ==========================================
+  $('videoNoteBtn').onclick = async () => {
+    if (!activeChatId) return toast('Откройте чат');
+    
+    openModal(`
+      <div class="rec-overlay">
+        <video id="recVideo" autoplay playsinline muted style="width:200px; height:200px; border-radius:50%; object-fit:cover; transform:scaleX(-1); border:4px solid var(--accent);"></video>
+        <div class="rec-timer" id="recTimerVid">0:00</div>
+        <div style="display:flex; gap:20px; margin-top:20px;">
+          <button class="modal-btn" onclick="cancelVideoNote()">Отмена</button>
+          <button class="modal-btn primary" onclick="stopVideoNote()">Отправить</button>
+        </div>
+      </div>
+    `);
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480 }, audio: true });
+      videoStream = stream;
+      $('recVideo').srcObject = stream;
+      
+      videoRecorder = new MediaRecorder(stream);
+      videoChunks = [];
+      videoSeconds = 0;
+      $('recTimerVid').textContent = '0:00';
+      
+      videoRecorder.ondataavailable = e => videoChunks.push(e.data);
+      videoRecorder.onstop = () => {
+        const blob = new Blob(videoChunks, { type: 'video/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => { sendMessage('video', reader.result); stream.getTracks().forEach(t => t.stop()); };
+        reader.readAsDataURL(blob);
+      };
+      
+      videoRecorder.start();
+      videoTimerInt = setInterval(() => {
+        videoSeconds++;
+        const m = Math.floor(videoSeconds / 60);
+        const s = videoSeconds % 60;
+        $('recTimerVid').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        if (videoSeconds >= 60) stopVideoNote(); // Максимум 60 секунд
+      }, 1000);
+      
+    } catch (e) { closeModal(); toast('Нет доступа к камере'); }
   };
 
   window.stopVideoNote = () => {
+    clearInterval(videoTimerInt);
+    if (videoRecorder) videoRecorder.stop();
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    closeModal();
+  };
+
+  window.cancelVideoNote = () => {
+    clearInterval(videoTimerInt);
+    if (videoRecorder) { videoRecorder.onstop = null; videoRecorder.stop(); }
     if (videoStream) videoStream.getTracks().forEach(t => t.stop());
     closeModal();
   };
@@ -649,6 +718,7 @@
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.onclick = () => {
       if (btn.dataset.tab === 'profile') openProfilePanel(currentUser.phone);
+      else if (btn.dataset.tab === 'friends') openFriendsPanel();
       else $('sidePanel').classList.remove('open');
     };
   });
@@ -658,6 +728,9 @@
     $('sidePanelBody').innerHTML = `
       <div class="menu-item" onclick="openProfilePanel('${currentUser.phone}')">
         <div class="menu-item__icon">👤</div><div class="menu-item__text">Мой профиль</div>
+      </div>
+      <div class="menu-item" onclick="openFriendsPanel()">
+        <div class="menu-item__icon">👥</div><div class="menu-item__text">Друзья</div>
       </div>
       <div class="menu-item" onclick="openSettingsPanel()">
         <div class="menu-item__icon">⚙️</div><div class="menu-item__text">Настройки</div>
@@ -673,6 +746,24 @@
       </div>
     `;
   }
+
+  window.openFriendsPanel = () => {
+    $('sidePanel').classList.add('open');
+    $('sidePanelTitle').textContent = 'Друзья';
+    const friends = DB.users.filter(u => u.phone !== currentUser.phone);
+    
+    $('sidePanelBody').innerHTML = friends.length ? friends.map(u => `
+      <div class="menu-item" onclick="closeSidePanelBtn.click(); openChat('${u.phone}')">
+        <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">
+          ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+        </div>
+        <div class="menu-item__text">
+          <div>${esc(u.name)}</div>
+          <div style="font-size:12px; color:var(--text-muted);">@${esc(u.username)}</div>
+        </div>
+      </div>
+    `).join('') : '<p style="text-align:center; color:var(--text-muted); margin-top:20px;">Пока нет друзей</p>';
+  };
 
   window.openSwitchAccount = async () => {
     const res = await fetch(`${API}/db`);
@@ -735,7 +826,6 @@
     
     $('sidePanelBody').innerHTML = `
       <div style="text-align:center; margin-bottom:20px;">
-        <!-- Смена аватарки -->
         ${isMe ? `
           <label for="avatarInput" style="cursor:pointer; display:inline-block;">
             <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
@@ -764,14 +854,12 @@
         await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, name: $('pName').value }) });
         toast('Сохранено'); loadDB();
       };
-      // Обработчик смены аватарки
       $('avatarInput').onchange = (e) => {
         const file = e.target.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => { 
           await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, avatar: ev.target.result }) }); 
           loadDB(); toast('Фото обновлено'); 
-          // Небольшой хак, чтобы обновить картинку в панели
           setTimeout(() => openProfilePanel(u.phone), 500);
         };
         reader.readAsDataURL(file);
