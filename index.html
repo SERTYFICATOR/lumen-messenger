@@ -6,17 +6,26 @@
 <title>Lumen — мессенджер</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <style>
+  /* Цветовая палитра, приближенная к Telegram */
   :root {
-    --bg: #0e1621; --bg-secondary: #17212b; --bg-hover: #202b36;
-    --bg-active: #2b5278; --text: #e9edf0; --text-muted: #7d8b99;
-    --accent: #5288c1; --accent-light: #64b5f6;
-    --bubble-in: #182533; --bubble-out: #2b5278;
-    --border: #101921; --danger: #e57373; --radius: 12px;
+    --bg: #17212b; 
+    --bg-secondary: #232e3c; 
+    --bg-hover: #202b36;
+    --bg-active: #2b5278; 
+    --text: #ffffff; 
+    --text-muted: #7f91a4;
+    --accent: #64b5f6; 
+    --accent-light: #8ab4f8;
+    --bubble-in: #182533; 
+    --bubble-out: #2b5278;
+    --border: #101921; 
+    --danger: #e57373; 
+    --radius: 12px;
     --chat-bg: #0e1621;
   }
   body.theme-light {
     --bg: #ffffff; --bg-secondary: #f4f4f5; --bg-hover: #e8e8ea;
-    --bg-active: #5288c1; --text: #1a1a1a; --text-muted: #7a7a7a;
+    --bg-active: #64b5f6; --text: #1a1a1a; --text-muted: #7a7a7a;
     --border: #e2e2e4; --bubble-in: #ffffff; --bubble-out: #e1ffc7;
     --chat-bg: #f0f2f5;
   }
@@ -104,13 +113,16 @@
   .msg { max-width: 65%; display: flex; flex-direction: column; position: relative; }
   .msg.in { align-self: flex-start; }
   .msg.out { align-self: flex-end; align-items: flex-end; }
+  
+  /* Пузыри Telegram */
   .bubble { padding: 8px 12px; border-radius: var(--radius); font-size: 14.5px; line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; position: relative; }
   .msg.in .bubble { background: var(--bubble-in); border-bottom-left-radius: 4px; }
   .msg.out .bubble { background: var(--bubble-out); border-bottom-right-radius: 4px; }
+  
   .msg__meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
   .msg__meta .check { color: var(--accent-light); }
   
-  /* НОВАЯ ФОРМА ВИДЕО (СЛОНИК) */
+  /* ФОРМА СЛОНИКА (2 круга + овал) */
   .video-snout {
     width: 160px;
     height: 160px;
@@ -126,9 +138,9 @@
     transform: scaleX(-1);
     /* Маска: два круга внизу и овал сверху */
     -webkit-mask-image: 
-      radial-gradient(circle at 30% 80%, black 30%, transparent 31%),
-      radial-gradient(circle at 70% 80%, black 30%, transparent 31%),
-      radial-gradient(ellipse at 50% 35%, black 25%, transparent 26%);
+      radial-gradient(circle at 30% 75%, black 25%, transparent 26%),
+      radial-gradient(circle at 70% 75%, black 25%, transparent 26%),
+      radial-gradient(ellipse at 50% 40%, black 28%, transparent 29%);
     -webkit-mask-composite: source-over;
     mask-composite: add;
     background: #000;
@@ -253,7 +265,7 @@
       <div class="stories-bar" id="storiesBar"></div>
       <ul class="chat-list" id="chatList"></ul>
       
-      <div class="version-badge">Lumen v3.4.0</div>
+      <div class="version-badge">Lumen v4.0.0 (Telegram Edition)</div>
       
       <nav class="sidebar__nav">
         <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
@@ -567,7 +579,7 @@
             <div class="chat-item__preview">${esc(ch.description || 'Канал')}</div>
           </div>
         `;
-        li.onclick = () => toast('Просмотр каналов в следующем обновлении');
+        li.onclick = () => openChannel(ch.id);
         list.appendChild(li);
       });
     }
@@ -607,6 +619,20 @@
       list.appendChild(li);
     });
   }
+
+  // Обработка каналов
+  window.openChannel = (chId) => {
+    const channel = DB.channels.find(c => c.id === chId);
+    if (!channel) return;
+    activeChatId = chId; // Используем ID канала как ID чата
+    $('chatEmpty').classList.add('hidden'); $('chatWindow').classList.remove('hidden');
+    $('chatName').textContent = channel.name;
+    $('chatStatus').textContent = 'Канал';
+    $('chatAvatar').innerHTML = '📢';
+    $('chatAvatar').style.background = '#ff9800';
+    renderMessages({ phone: chId, name: channel.name, color: '#ff9800' }); // Передаем фейковый контакт
+    $('messageInput').focus();
+  };
 
   async function openChat(phone) {
     const contact = DB.users.find(u => u.phone === phone);
@@ -675,7 +701,7 @@
     
     try {
       await fetch(`${API}/message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: currentUser.phone, to: activeChatId, text, type }) });
-      loadDB().then(() => renderMessages(DB.users.find(u => u.phone === activeChatId)));
+      loadDB().then(() => renderMessages({ phone: activeChatId, name: 'Chat', color: '#000' }));
     } catch (e) { toast('Ошибка отправки'); }
   }
 
@@ -731,8 +757,8 @@
     if (!activeChatId) return toast('Откройте чат');
     openModal(`
       <div class="rec-overlay">
-        <div style="width:160px; height:160px; background:#000; -webkit-mask-image: radial-gradient(circle at 30% 80%, black 30%, transparent 31%), radial-gradient(circle at 70% 80%, black 30%, transparent 31%), radial-gradient(ellipse at 50% 35%, black 25%, transparent 26%); -webkit-mask-composite: source-over; mask-composite: add;">
-          <video id="recVideo" autoplay playsinline muted style="width:100%; height:100%; object-fit:cover; transform:scaleX(-1);"></video>
+        <div class="video-snout" style="width:200px; height:200px;">
+          <video id="recVideo" autoplay playsinline muted></video>
         </div>
         <div class="rec-timer" id="recTimerVid">0:00</div>
         <div style="display:flex; gap:20px; margin-top:20px;">
@@ -981,7 +1007,7 @@
   };
 
   if (socket) {
-    socket.on('new_message', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
+    socket.on('new_message', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages({ phone: activeChatId, name: 'Chat', color: '#000' }); }); });
     socket.on('new_request', () => { if (currentUser) { loadDB(); toast('Новая заявка в друзья!'); } });
     socket.on('friend_accepted', () => { if (currentUser) { loadDB(); toast('Заявка принята!'); } });
     socket.on('new_story', () => { if (currentUser) loadDB(); });
