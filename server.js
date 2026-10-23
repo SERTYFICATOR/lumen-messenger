@@ -33,11 +33,35 @@ io.on('connection', (socket) => {
 
 app.get('/api/db', (req, res) => res.json(readDB()));
 
+// Поиск пользователей
 app.get('/api/search', (req, res) => {
   const q = (req.query.q || '').toLowerCase().trim();
   if (!q) return res.json([]);
   const db = readDB();
-  res.json(db.users.filter(u => u.phone.includes(q) || (u.name && u.name.toLowerCase().includes(q)) || (u.username && u.username.toLowerCase().includes(q))));
+  
+  let results = db.users.filter(u => 
+    (u.phone && u.phone.includes(q)) || 
+    (u.name && u.name.toLowerCase().includes(q)) || 
+    (u.username && u.username.toLowerCase().includes(q))
+  );
+
+  // Если не нашли в базе пользователей, ищем по сообщениям (вдруг он писал, но не зарегистрировался)
+  if (results.length === 0) {
+    const msgFrom = db.messages.filter(m => m.from.includes(q)).map(m => m.from);
+    const msgTo = db.messages.filter(m => m.to.includes(q)).map(m => m.to);
+    const phones = [...new Set([...msgFrom, ...msgTo])];
+    
+    phones.forEach(p => {
+      if (!db.users.find(u => u.phone === p)) {
+        const newUser = { phone: p, name: 'Пользователь ' + p.slice(-4), username: 'user' + p.slice(-4), color: '#5288c1', bio: '', cloudPassword: null };
+        db.users.push(newUser);
+        results.push(newUser);
+      }
+    });
+    writeDB(db);
+  }
+
+  res.json(results);
 });
 
 app.post('/api/auth/check', (req, res) => {
@@ -75,19 +99,39 @@ app.post('/api/profile', (req, res) => {
   } else res.status(404).json({ error: 'Нет юзера' });
 });
 
+// Принудительное добавление в друзья (создает юзера, если его нет)
+app.post('/api/friend', (req, res) => {
+  const { phone } = req.body;
+  const db = readDB();
+  let user = db.users.find(u => u.phone === phone);
+  if (!user) {
+    user = { phone, name: 'Пользователь ' + phone.slice(-4), username: 'user' + phone.slice(-4), color: '#5288c1', bio: '', cloudPassword: null };
+    db.users.push(user);
+    writeDB(db);
+  }
+  res.json({ success: true, user });
+});
+
 app.post('/api/message', (req, res) => {
   const { from, to, text, type } = req.body; 
   const db = readDB();
+  
+  // Если получателя нет в базе — создаем
   if (!db.users.find(u => u.phone === to)) {
     db.users.push({ phone: to, name: 'Пользователь ' + to.slice(-4), username: 'user' + to.slice(-4), color: '#5288c1', bio: '', cloudPassword: null });
   }
+
   const msg = {
     id: Date.now().toString(), from, to, text, type: type || 'text',
     time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     timestamp: Date.now(), read: false
   };
   db.messages.push(msg); writeDB(db);
-  io.to(to).emit('new_message', msg); io.to(from).emit('new_message', msg);
+  
+  // Отправляем моментально через сокеты
+  io.to(to).emit('new_message', msg); 
+  io.to(from).emit('new_message', msg);
+  
   res.json({ success: true, message: msg });
 });
 
@@ -95,17 +139,15 @@ app.post('/api/read', (req, res) => {
   const { from, to } = req.body;
   const db = readDB();
   db.messages.forEach(m => { if (m.from === from && m.to === to && !m.read) m.read = true; });
-  writeDB(db); io.to(from).emit('messages_read', { by: to }); res.json({ success: true });
+  writeDB(db); 
+  io.to(from).emit('messages_read', { by: to }); 
+  res.json({ success: true });
 });
 
 app.post('/api/story', (req, res) => {
-  const { authorPhone, image, video, caption } = req.body;
+  const { authorPhone, image, video } = req.body;
   const db = readDB();
-  const story = { 
-    id: Date.now().toString(), authorPhone, 
-    image: image || null, video: video || null, caption: caption || '', 
-    time: 'только что', timestamp: Date.now() 
-  };
+  const story = { id: Date.now().toString(), authorPhone, image: image || null, video: video || null, time: 'только что', timestamp: Date.now() };
   db.stories.unshift(story); writeDB(db); io.emit('new_story', story);
   res.json({ success: true, story });
 });
