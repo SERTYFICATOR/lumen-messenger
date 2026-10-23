@@ -18,11 +18,13 @@ app.use(express.static(__dirname));
 
 function readDB() {
   if (!fs.existsSync(DB_FILE)) {
-    const initial = { users: [], messages: [], stories: [] };
+    const initial = { users: [], messages: [], stories: [], requests: [] };
     fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
     return initial;
   }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+  if (!db.requests) db.requests = []; // Миграция для старых баз
+  return db;
 }
 
 function writeDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); }
@@ -33,7 +35,6 @@ io.on('connection', (socket) => {
 
 app.get('/api/db', (req, res) => res.json(readDB()));
 
-// Поиск пользователей
 app.get('/api/search', (req, res) => {
   const q = (req.query.q || '').toLowerCase().trim();
   if (!q) return res.json([]);
@@ -45,7 +46,6 @@ app.get('/api/search', (req, res) => {
     (u.username && u.username.toLowerCase().includes(q))
   );
 
-  // Если не нашли в базе пользователей, ищем по сообщениям (вдруг он писал, но не зарегистрировался)
   if (results.length === 0) {
     const msgFrom = db.messages.filter(m => m.from.includes(q)).map(m => m.from);
     const msgTo = db.messages.filter(m => m.to.includes(q)).map(m => m.to);
@@ -60,7 +60,6 @@ app.get('/api/search', (req, res) => {
     });
     writeDB(db);
   }
-
   res.json(results);
 });
 
@@ -99,7 +98,40 @@ app.post('/api/profile', (req, res) => {
   } else res.status(404).json({ error: 'Нет юзера' });
 });
 
-// Принудительное добавление в друзья (создает юзера, если его нет)
+// --- СИСТЕМА ЗАЯВОК В ДРУЗЬЯ ---
+
+// Отправить заявку
+app.post('/api/friend/request', (req, res) => {
+  const { from, to } = req.body;
+  const db = readDB();
+  if (!db.requests.find(r => r.from === from && r.to === to)) {
+    db.requests.push({ id: Date.now().toString(), from, to, timestamp: Date.now() });
+    writeDB(db);
+    io.to(to).emit('new_request', { from });
+  }
+  res.json({ success: true });
+});
+
+// Принять заявку
+app.post('/api/friend/accept', (req, res) => {
+  const { from, to } = req.body;
+  const db = readDB();
+  db.requests = db.requests.filter(r => !(r.from === from && r.to === to));
+  writeDB(db);
+  io.to(from).emit('friend_accepted', { by: to });
+  res.json({ success: true });
+});
+
+// Отклонить заявку
+app.post('/api/friend/decline', (req, res) => {
+  const { from, to } = req.body;
+  const db = readDB();
+  db.requests = db.requests.filter(r => !(r.from === from && r.to === to));
+  writeDB(db);
+  res.json({ success: true });
+});
+
+// Принудительное добавление (для старых записей)
 app.post('/api/friend', (req, res) => {
   const { phone } = req.body;
   const db = readDB();
@@ -116,7 +148,6 @@ app.post('/api/message', (req, res) => {
   const { from, to, text, type } = req.body; 
   const db = readDB();
   
-  // Если получателя нет в базе — создаем
   if (!db.users.find(u => u.phone === to)) {
     db.users.push({ phone: to, name: 'Пользователь ' + to.slice(-4), username: 'user' + to.slice(-4), color: '#5288c1', bio: '', cloudPassword: null });
   }
@@ -128,7 +159,6 @@ app.post('/api/message', (req, res) => {
   };
   db.messages.push(msg); writeDB(db);
   
-  // Отправляем моментально через сокеты
   io.to(to).emit('new_message', msg); 
   io.to(from).emit('new_message', msg);
   
