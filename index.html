@@ -23,7 +23,9 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
   input, button, select, textarea { font-family: inherit; color: inherit; background: transparent; border: none; outline: none; }
-  body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 15px; display: flex; flex-direction: column; }
+  
+  /* ИСПРАВЛЕНИЕ: Жесткая фиксация высоты body */
+  body { background: var(--bg); color: var(--text); height: 100vh; height: 100dvh; overflow: hidden; font-size: 15px; display: flex; flex-direction: column; }
   .hidden { display: none !important; }
   button { cursor: pointer; }
 
@@ -46,7 +48,7 @@
   .auth__hint { font-size: 11.5px; color: var(--text-muted); text-align: center; margin-top: 8px; }
 
   /* APP LAYOUT */
-  .app-inner { display: flex; height: 100%; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; width: 100%; }
+  .app-inner { display: flex; height: 100%; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; width: 100%; flex: 1; }
   .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); z-index: 20; }
   .sidebar__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 20px; padding: 6px 12px; }
@@ -84,20 +86,20 @@
   .nav-btn span { font-size: 10px; }
   .nav-btn.active { color: var(--accent-light); }
 
-  /* CHAT WINDOW */
-  .chat { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); }
+  /* CHAT WINDOW - ИСПРАВЛЕНО */
+  .chat { flex: 1; display: flex; flex-direction: column; background: var(--chat-bg); min-width: 0; position: relative; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); height: 100%; overflow: hidden; }
   .chat__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); }
   .chat__empty-logo { font-size: 48px; font-weight: 700; background: linear-gradient(135deg, var(--accent-light), var(--accent)); -webkit-background-clip: text; color: transparent; }
   
-  .chat__window { flex: 1; display: flex; flex-direction: column; min-height: 0; }
-  .chat__header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
+  .chat__window { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+  .chat__header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); flex-shrink: 0; }
   .chat__header .avatar { width: 40px; height: 40px; font-size: 16px; }
   .chat__name { font-weight: 600; font-size: 15px; }
   .chat__status { font-size: 12px; color: var(--accent-light); }
   .back-btn { display: none; font-size: 22px; margin-right: -5px; }
 
-  /* MESSAGES */
-  .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
+  /* MESSAGES - ИСПРАВЛЕНО */
+  .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .msg { max-width: 65%; display: flex; flex-direction: column; position: relative; }
   .msg.in { align-self: flex-start; }
   .msg.out { align-self: flex-end; align-items: flex-end; }
@@ -107,9 +109,34 @@
   .msg__meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
   .msg__meta .check { color: var(--accent-light); }
   
-  /* Треугольное видео */
-  .video-triangle { width: 160px; height: 140px; background: #000; clip-path: polygon(50% 0%, 0% 100%, 100% 100%); overflow: hidden; position: relative; border: 2px solid var(--accent); }
-  .video-triangle video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  /* НОВАЯ ФОРМА ВИДЕО (Хобот слона / 2 круга + овал) */
+  .video-snout {
+    width: 180px;
+    height: 140px;
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border: 2px solid var(--accent);
+    border-radius: 40px 40px 80px 80px; /* Придает овальную форму снизу */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Маска для создания формы "слона" (два круга по бокам и овал) */
+  .video-snout::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: #000;
+    -webkit-mask-image: 
+      radial-gradient(circle at 30% 50%, black 30%, transparent 31%),
+      radial-gradient(circle at 70% 50%, black 30%, transparent 31%),
+      radial-gradient(ellipse at 50% 100%, black 50%, transparent 51%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+    z-index: 2;
+  }
+  .video-snout video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
 
   /* Голосовые */
   .voice-msg { display: flex; align-items: center; gap: 10px; width: 180px; cursor: pointer; }
@@ -119,7 +146,7 @@
   .msg.out .voice-wave div { background: rgba(255,255,255,0.7); }
 
   /* COMPOSER */
-  .composer { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--bg-secondary); border-top: 1px solid var(--border); position: relative; }
+  .composer { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--bg-secondary); border-top: 1px solid var(--border); position: relative; flex-shrink: 0; }
   .composer input { flex: 1; background: var(--bg); font-size: 15px; padding: 10px 16px; border-radius: 20px; }
   .send-btn { background: var(--accent); color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 
@@ -231,7 +258,7 @@
       <div class="stories-bar" id="storiesBar"></div>
       <ul class="chat-list" id="chatList"></ul>
       
-      <div class="version-badge">Lumen v3.1.0</div>
+      <div class="version-badge">Lumen v3.3.0</div>
       
       <nav class="sidebar__nav">
         <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
@@ -260,7 +287,7 @@
           <button class="icon-btn" id="emojiBtn">😊</button>
           <input type="text" id="messageInput" placeholder="Написать сообщение...">
           <button class="icon-btn" id="voiceBtn">🎤</button>
-          <button class="icon-btn" id="videoNoteBtn">🔺</button>
+          <button class="icon-btn" id="videoNoteBtn">📹</button>
           <button class="send-btn" id="sendBtn">➤</button>
         </footer>
 
@@ -560,7 +587,7 @@
         <div class="avatar" style="background:${contact.color}">${contact.avatar ? `<img src="${contact.avatar}">` : esc(initials(contact.name))}</div>
         <div class="chat-item__body">
           <div class="chat-item__top"><span class="chat-item__name">${esc(contact.name)}</span><span class="chat-item__time">${last ? last.time : ''}</span></div>
-          <div class="chat-item__preview">${last ? (last.from === currentUser.phone ? 'Вы: ' : '') + (last.type === 'voice' ? '🎤 Голосовое' : last.type === 'video' ? '🔺 Видео' : esc(last.text)) : ''}</div>
+          <div class="chat-item__preview">${last ? (last.from === currentUser.phone ? 'Вы: ' : '') + (last.type === 'voice' ? '🎤 Голосовое' : last.type === 'video' ? '📹 Видео' : esc(last.text)) : ''}</div>
         </div>
         ${unread ? `<span class="unread-badge">${unread}</span>` : ''}
       `;
@@ -604,7 +631,7 @@
         if (m.type === 'voice') {
           content = `<div class="voice-msg" onclick="playVoice(this, '${m.text}')"><div class="voice-play">▶</div><div class="voice-wave">${Array(10).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*80)+20}%"></div>`).join('')}</div></div>`;
         } else if (m.type === 'video') {
-          content = `<div class="video-triangle"><video src="${m.text}" autoplay loop muted playsinline></video></div>`;
+          content = `<div class="video-snout"><video src="${m.text}" autoplay loop muted playsinline></video></div>`;
         } else {
           content = esc(m.text);
         }
@@ -692,7 +719,7 @@
     if (!activeChatId) return toast('Откройте чат');
     openModal(`
       <div class="rec-overlay">
-        <video id="recVideo" autoplay playsinline muted style="width:200px; height:200px; object-fit:cover; transform:scaleX(-1); border:4px solid var(--accent); clip-path: polygon(50% 0%, 0% 100%, 100% 100%); background:#000;"></video>
+        <video id="recVideo" autoplay playsinline muted style="width:180px; height:140px; object-fit:cover; transform:scaleX(-1); border:4px solid var(--accent); border-radius: 40px 40px 80px 80px; background:#000;"></video>
         <div class="rec-timer" id="recTimerVid">0:00</div>
         <div style="display:flex; gap:20px; margin-top:20px;">
           <button class="modal-btn" onclick="cancelVideoNote()">Отмена</button>
