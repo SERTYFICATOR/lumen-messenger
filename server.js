@@ -2,151 +2,192 @@ const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
-const mongoose = require('mongoose');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 const PORT = process.env.PORT || 3000;
-
-// ВСТАВЬТЕ СЮДА ВАШУ ССЫЛКУ ИЗ MONGODB ATLAS
-// Пример: mongodb+srv://user:password@cluster0.abcde.mongodb.net/lumen?retryWrites=true&w=majority
-const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/lumen'; 
+const DB_FILE = path.join(__dirname, 'database.json');
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(__dirname));
 
-// --- СХЕМЫ БАЗЫ ДАННЫХ ---
-const User = mongoose.model('User', new mongoose.Schema({
-  phone: { type: String, unique: true },
-  name: String, username: String, color: String, avatar: String, bio: String, cloudPassword: String
-}));
+// ==========================================
+//  УМНАЯ БАЗА ДАННЫХ (Не теряет аккаунты)
+// ==========================================
+function readDB() {
+  if (!fs.existsSync(DB_FILE)) {
+    const initial = { users: [], messages: [], stories: [], channels: [], requests: [] };
+    fs.writeFileSync(DB_FILE, JSON.stringify(initial, null, 2));
+    return initial;
+  }
+  try {
+    const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    if (!data.users) data.users = [];
+    if (!data.messages) data.messages = [];
+    if (!data.stories) data.stories = [];
+    if (!data.channels) data.channels = [];
+    if (!data.requests) data.requests = [];
+    return data;
+  } catch (e) {
+    return { users: [], messages: [], stories: [], channels: [], requests: [] };
+  }
+}
 
-const Message = mongoose.model('Message', new mongoose.Schema({
-  from: String, to: String, text: String, type: String, time: String, timestamp: Number, read: Boolean
-}));
+function writeDB(data) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+  // Дублируем в системную папку (чтобы Render не стер при перезагрузке)
+  const backup = path.join(__dirname, '..', 'database_backup.json');
+  try { fs.writeFileSync(backup, JSON.stringify(data, null, 2)); } catch(e) {}
+}
 
-const Story = mongoose.model('Story', new mongoose.Schema({
-  authorPhone: String, image: String, video: String, time: String, timestamp: Number
-}));
+// Инициализация базы ИИ
+const dbInit = readDB();
+if (!dbInit.users.find(u => u.phone === 'AI_BOT')) {
+  dbInit.users.push({ 
+    phone: 'AI_BOT', 
+    name: 'Lumen AI', 
+    username: 'ai_bot', 
+    color: '#ba68c8', 
+    bio: 'Искусственный интеллект' 
+  });
+  writeDB(dbInit);
+}
 
-const Channel = mongoose.model('Channel', new mongoose.Schema({
-  id: String, name: String, description: String, authorPhone: String, subscribers: [String]
-}));
-
-// --- API ---
 io.on('connection', (socket) => {
   socket.on('join', (phone) => socket.join(phone));
 });
 
-app.get('/api/db', async (req, res) => {
-  const users = await User.find();
-  const messages = await Message.find();
-  const stories = await Story.find().sort({timestamp: -1});
-  const channels = await Channel.find();
-  res.json({ users, messages, stories, channels });
-});
+// --- API ---
+app.get('/api/db', (req, res) => res.json(readDB()));
 
-app.get('/api/search', async (req, res) => {
+app.get('/api/search', (req, res) => {
   const q = (req.query.q || '').toLowerCase().trim();
   if (!q) return res.json([]);
-  const users = await User.find({
-    $or: [
-      { phone: { $regex: q, $options: 'i' } },
-      { name: { $regex: q, $options: 'i' } },
-      { username: { $regex: q, $options: 'i' } }
-    ]
-  });
-  res.json(users);
+  const db = readDB();
+  const results = db.users.filter(u => 
+    u.phone !== 'AI_BOT' && (
+      (u.phone && u.phone.includes(q)) || 
+      (u.name && u.name.toLowerCase().includes(q)) || 
+      (u.username && u.username.toLowerCase().includes(q))
+    )
+  );
+  res.json(results);
 });
 
-app.post('/api/auth/check', async (req, res) => {
-  const user = await User.findOne({ phone: req.body.phone });
+app.post('/api/auth/check', (req, res) => {
+  const user = readDB().users.find(u => u.phone === req.body.phone);
   if (!user) return res.json({ exists: false });
   if (user.cloudPassword) return res.json({ exists: true, requiresPassword: true });
-  res.json({ exists: true, requiresPassword: false, user });
+  return res.json({ exists: true, requiresPassword: false, user });
 });
 
-app.post('/api/auth/verify-password', async (req, res) => {
-  const user = await User.findOne({ phone: req.body.phone });
+app.post('/api/auth/verify-password', (req, res) => {
+  const user = readDB().users.find(u => u.phone === req.body.phone);
   if (user && user.cloudPassword === req.body.password) return res.json({ success: true, user });
   res.status(401).json({ error: 'Неверный пароль' });
 });
 
-app.post('/api/auth/register', async (req, res) => {
-  if (await User.findOne({ username: req.body.username })) return res.status(400).json({ error: 'Username занят' });
-  const newUser = new User({ ...req.body, bio: '', cloudPassword: null, avatar: null });
-  await newUser.save();
-  res.json({ success: true, user: newUser });
+app.post('/api/auth/register', (req, res) => {
+  const db = readDB();
+  if (db.users.some(u => u.username === req.body.username)) return res.status(400).json({ error: 'Username занят' });
+  const newUser = { ...req.body, bio: '', cloudPassword: null, avatar: null };
+  db.users.push(newUser); writeDB(db); res.json({ success: true, user: newUser });
 });
 
-app.post('/api/profile', async (req, res) => {
-  const user = await User.findOneAndUpdate({ phone: req.body.phone }, req.body, { new: true });
-  res.json({ success: true, user });
+app.post('/api/profile', (req, res) => {
+  const db = readDB();
+  const user = db.users.find(u => u.phone === req.body.phone);
+  if (user) { Object.assign(user, req.body); writeDB(db); res.json({ success: true, user }); }
+  else res.status(404).json({ error: 'Нет юзера' });
 });
 
-app.post('/api/channel', async (req, res) => {
-  const newChannel = new Channel({ id: Date.now().toString(), ...req.body, subscribers: [req.body.authorPhone] });
-  await newChannel.save();
-  io.emit('new_channel', newChannel);
-  res.json({ success: true, channel: newChannel });
+// Система друзей
+app.post('/api/friend/request', (req, res) => {
+  const db = readDB();
+  if (!db.requests.find(r => r.from === req.body.from && r.to === req.body.to)) {
+    db.requests.push({ id: Date.now().toString(), from: req.body.from, to: req.body.to });
+    writeDB(db);
+    io.to(req.body.to).emit('new_request', { from: req.body.from });
+  }
+  res.json({ success: true });
 });
 
-app.post('/api/message', async (req, res) => {
-  const { from, to, text, type } = req.body;
-  const msg = new Message({
-    from, to, text, type: type || 'text',
+app.post('/api/friend/accept', (req, res) => {
+  const db = readDB();
+  db.requests = db.requests.filter(r => !(r.from === req.body.from && r.to === req.body.to));
+  writeDB(db);
+  io.to(req.body.from).emit('friend_accepted', { by: req.body.to });
+  res.json({ success: true });
+});
+
+app.post('/api/friend/decline', (req, res) => {
+  const db = readDB();
+  db.requests = db.requests.filter(r => !(r.from === req.body.from && r.to === req.body.to));
+  writeDB(db);
+  res.json({ success: true });
+});
+
+// Каналы
+app.post('/api/channel', (req, res) => {
+  const db = readDB();
+  const channel = { id: Date.now().toString(), ...req.body, subscribers: [req.body.authorPhone] };
+  db.channels.push(channel); writeDB(db); io.emit('new_channel', channel);
+  res.json({ success: true, channel });
+});
+
+// Сообщения
+app.post('/api/message', (req, res) => {
+  const db = readDB();
+  if (!db.users.find(u => u.phone === req.body.to)) {
+    db.users.push({ phone: req.body.to, name: 'Пользователь', username: 'user' + req.body.to.slice(-4), color: '#5288c1' });
+  }
+  const msg = {
+    id: Date.now().toString(), from: req.body.from, to: req.body.to, text: req.body.text, type: req.body.type || 'text',
     time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     timestamp: Date.now(), read: false
-  });
-  await msg.save();
-  
-  io.to(to).emit('new_message', msg);
-  io.to(from).emit('new_message', msg);
+  };
+  db.messages.push(msg); writeDB(db);
+  io.to(msg.to).emit('new_message', msg); io.to(msg.from).emit('new_message', msg);
 
-  // ОТВЕТ ИСКУССТВЕННОГО ИНТЕЛЛЕКТА (Если пишем в чат ИИ)
-  if (to === 'AI_BOT') {
-    setTimeout(async () => {
-      const aiText = getAIResponse(text);
-      const aiMsg = new Message({
-        from: 'AI_BOT', to: from, text: aiText, type: 'text',
+  // Логика ИИ-бота
+  if (msg.to === 'AI_BOT') {
+    setTimeout(() => {
+      const aiMsg = {
+        id: Date.now().toString(), from: 'AI_BOT', to: msg.from, text: getAIResponse(msg.text), type: 'text',
         time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
         timestamp: Date.now(), read: false
-      });
-      await aiMsg.save();
-      io.to(from).emit('new_message', aiMsg);
+      };
+      db.messages.push(aiMsg); writeDB(db);
+      io.to(msg.from).emit('new_message', aiMsg);
     }, 1000);
   }
   res.json({ success: true, message: msg });
 });
 
-// Простая имитация ИИ
 function getAIResponse(text) {
   const t = text.toLowerCase();
-  if (t.includes('привет') || t.includes('здравствуй')) return 'Привет! Я искусственный интеллект Lumen. Чем могу помочь?';
-  if (t.includes('как дела')) return 'У меня всё отлично, я же программа! А у тебя как?';
-  if (t.includes('погода')) return 'Я не могу посмотреть в окно, но могу сказать, что в интернете всегда облачно ☁️';
-  if (t.includes('кто ты')) return 'Я твой цифровой помощник, созданный на базе Lumen.';
-  if (t.includes('шутка')) return 'Почему программисты путают Хэллоуин и Рождество? Потому что Oct 31 == Dec 25!';
-  return `Интересный вопрос! Вы написали: "${text}". Я пока учусь, но обязательно запомню это.`;
+  if (t.includes('привет')) return 'Привет! Я ИИ Lumen. Чем помочь?';
+  if (t.includes('как дела')) return 'У меня всё отлично! А у тебя?';
+  if (t.includes('кто ты')) return 'Я твой цифровой помощник.';
+  return `Ты написал: "${text}". Я пока учусь анализировать.`;
 }
 
-app.post('/api/read', async (req, res) => {
-  await Message.updateMany({ from: req.body.from, to: req.body.to, read: false }, { read: true });
-  io.to(req.body.from).emit('messages_read', { by: req.body.to });
-  res.json({ success: true });
+app.post('/api/read', (req, res) => {
+  const db = readDB();
+  db.messages.forEach(m => { if (m.from === req.body.from && m.to === req.body.to) m.read = true; });
+  writeDB(db); io.to(req.body.from).emit('messages_read', { by: req.body.to }); res.json({ success: true });
 });
 
-app.post('/api/story', async (req, res) => {
-  const story = new Story({ ...req.body, time: 'только что', timestamp: Date.now() });
-  await story.save();
-  io.emit('new_story', story);
+app.post('/api/story', (req, res) => {
+  const db = readDB();
+  const story = { id: Date.now().toString(), ...req.body, time: 'только что', timestamp: Date.now() };
+  db.stories.unshift(story); writeDB(db); io.emit('new_story', story);
   res.json({ success: true, story });
 });
 
-// Запуск сервера после подключения к БД
-mongoose.connect(MONGO_URI).then(() => {
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}).catch(err => console.error('DB Connection Error:', err));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
