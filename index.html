@@ -14,7 +14,6 @@
     --border: #101921; --danger: #e57373; --radius: 12px;
     --chat-bg: #0e1621;
   }
-  /* Светлая тема */
   body.theme-light {
     --bg: #ffffff; --bg-secondary: #f4f4f5; --bg-hover: #e8e8ea;
     --bg-active: #5288c1; --text: #1a1a1a; --text-muted: #7a7a7a;
@@ -22,10 +21,12 @@
     --chat-bg: #f0f2f5;
   }
 
+  /* Сброс стилей для всех элементов (фикс белого поля ввода и т.д.) */
   * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  input, button, select, textarea { font-family: inherit; color: inherit; background: transparent; border: none; outline: none; }
   body { background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; font-size: 15px; }
   .hidden { display: none !important; }
-  button { cursor: pointer; border: none; background: transparent; color: inherit; }
+  button { cursor: pointer; }
 
   /* AUTH */
   .auth { position: fixed; inset: 0; z-index: 500; background: radial-gradient(circle at 30% 20%, #1c2b3a, #0e1621 70%); display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -34,20 +35,20 @@
   .auth__subtitle { text-align: center; color: var(--text-muted); font-size: 14px; margin-bottom: 24px; }
   .auth__step { display: flex; flex-direction: column; gap: 8px; }
   .auth__label { font-size: 12.5px; color: var(--accent-light); font-weight: 500; margin-top: 8px; }
-  .auth__step input { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px; outline: none; }
+  .auth__step input { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; color: var(--text); font-size: 16px; }
   .auth__step input:focus { border-color: var(--accent); }
   .auth__btn { background: var(--accent); color: #fff; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 12px; }
   .auth__link { color: var(--accent-light); font-size: 13.5px; margin-top: 10px; }
   .auth__hint { font-size: 11.5px; color: var(--text-muted); text-align: center; margin-top: 8px; }
 
-  /* APP */
+  /* APP LAYOUT */
   .app-inner { display: flex; height: 100vh; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; }
   
   /* SIDEBAR */
   .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; z-index: 20; }
   .sidebar__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 20px; padding: 6px 12px; }
-  .search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; }
+  .search input { flex: 1; font-size: 14px; }
   .icon-btn { font-size: 18px; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
   .icon-btn:hover { background: var(--bg-hover); color: var(--text); }
   
@@ -68,7 +69,7 @@
   .chat-item.pinned .pinned-icon { display: block; }
 
   /* NAV */
-  .sidebar__nav { display: flex; border-top: 1px solid var(--border); background: var(--bg-secondary); }
+  .sidebar__nav { display: flex; border-top: 1px solid var(--border); }
   .nav-btn { flex: 1; color: var(--text-muted); padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 18px; }
   .nav-btn span { font-size: 10px; }
   .nav-btn.active { color: var(--accent-light); }
@@ -96,64 +97,64 @@
   .msg__meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; align-items: center; gap: 4px; }
   .msg__meta .check { color: var(--accent-light); }
   
-  .msg-bubble-voice { display: flex; align-items: center; gap: 10px; padding: 4px; }
-  .voice-play-btn { background: var(--accent); color: #fff; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-  .voice-wave { display: flex; align-items: center; gap: 2px; height: 20px; }
-  .voice-wave div { width: 3px; background: var(--text-muted); border-radius: 2px; }
-  .msg.out .voice-wave div { background: rgba(255,255,255,0.7); }
-  
-  /* Кружки (видео) */
+  /* Кружки и Голосовые */
   .video-note { width: 150px; height: 150px; border-radius: 50%; object-fit: cover; overflow: hidden; border: 2px solid var(--accent); }
   .video-note video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+  .voice-msg { display: flex; align-items: center; gap: 10px; width: 180px; }
+  .voice-play { background: var(--accent); color: #fff; width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .voice-wave { display: flex; align-items: center; gap: 2px; height: 20px; flex: 1; }
+  .voice-wave div { width: 3px; background: var(--text-muted); border-radius: 2px; }
+  .msg.out .voice-wave div { background: rgba(255,255,255,0.7); }
 
   /* COMPOSER */
   .composer { display: flex; align-items: center; gap: 6px; padding: 10px 16px; background: var(--bg-secondary); border-top: 1px solid var(--border); position: relative; }
-  .composer input { flex: 1; background: var(--bg); border: none; outline: none; color: var(--text); font-size: 15px; padding: 10px 16px; border-radius: 20px; }
+  .composer input { flex: 1; background: var(--bg); font-size: 15px; padding: 10px 16px; border-radius: 20px; }
   .send-btn { background: var(--accent); color: #fff; width: 40px; height: 40px; border-radius: 50%; font-size: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
   
-  /* Эмодзи панель */
+  /* Эмодзи */
   .emoji-panel { position: absolute; bottom: 65px; left: 10px; right: 10px; background: var(--bg-secondary); border-radius: 12px; padding: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.5); display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; max-height: 200px; overflow-y: auto; z-index: 50; }
   .emoji-panel span { font-size: 24px; cursor: pointer; text-align: center; border-radius: 6px; }
   .emoji-panel span:hover { background: var(--bg-hover); }
 
-  /* RECORDING OVERLAY */
-  .recording-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; color: #fff; }
-  .recording-timer { font-size: 28px; font-weight: bold; }
-  .recording-btn { width: 70px; height: 70px; border-radius: 50%; background: red; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-  .recording-cancel { position: absolute; top: 20px; right: 20px; font-size: 20px; color: #fff; }
+  /* ПАНЕЛИ (Выезжают слева) */
+  .side-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 380px; background: var(--bg-secondary); border-right: 1px solid var(--border); z-index: 60; display: flex; flex-direction: column; transform: translateX(-100%); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1); box-shadow: 10px 0 30px rgba(0,0,0,0.5); }
+  .side-panel.open { transform: translateX(0); }
+  .side-panel__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .side-panel__body { flex: 1; overflow-y: auto; padding: 16px; }
+  .profile-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+  .profile-field label { font-size: 12.5px; color: var(--accent-light); font-weight: 500; }
+  .profile-field input { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14.5px; }
+  .profile-save { width: 100%; background: var(--accent); color: #fff; padding: 12px; border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 10px; }
+  .menu-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 10px; cursor: pointer; transition: background 0.15s; }
+  .menu-item:hover { background: var(--bg-hover); }
+  .menu-item__icon { font-size: 20px; }
+  .menu-item__text { flex: 1; font-weight: 500; }
 
-  /* SETTINGS & PANELS */
-  .profile-panel { position: absolute; top: 0; right: 0; bottom: 0; width: 380px; background: var(--bg-secondary); border-left: 1px solid var(--border); z-index: 60; display: flex; flex-direction: column; transition: transform 0.3s ease; }
-  .profile-panel__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
-  .profile-panel__body { flex: 1; overflow-y: auto; padding: 16px; }
-  .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
-  .settings-row label { font-size: 14.5px; }
-  .settings-row select, .settings-row input[type="range"], .settings-row input[type="color"] { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 4px; outline: none; }
-  .swatches { display: flex; gap: 8px; margin-top: 10px; }
-  .swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
-  .swatch.active { border-color: #fff; }
-  
+  /* MODAL */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 100; }
   .modal { background: var(--bg-secondary); border-radius: 14px; padding: 24px; width: 90%; max-width: 420px; }
   .modal h3 { margin-bottom: 16px; }
   .modal-field { margin-bottom: 14px; }
   .modal-field label { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
-  .modal-field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); outline: none; }
+  .modal-field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
   .modal-btn { padding: 10px 16px; border-radius: 8px; font-weight: 500; }
   .modal-btn.primary { background: var(--accent); color: #fff; }
-  
   .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--bg-active); color: #fff; padding: 12px 22px; border-radius: 24px; z-index: 1000; font-size: 14px; }
-  .search-result { padding: 10px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; cursor: pointer; }
-  .search-result:hover { background: var(--bg-hover); }
+  
+  .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .settings-row label { font-size: 14.5px; }
+  .settings-row select, .settings-row input[type="color"] { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 4px; }
+  .swatches { display: flex; gap: 8px; margin-top: 10px; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .swatch.active { border-color: #fff; }
 
   /* ===== МОБИЛЬНЫЙ АДАПТИВ ===== */
   @media (max-width: 768px) {
     .sidebar { width: 100%; min-width: 100%; border: none; }
     .chat { position: absolute; inset: 0; z-index: 30; transform: translateX(100%); }
     .chat.open { transform: translateX(0); }
-    .profile-panel { width: 100%; transform: translateX(100%); z-index: 40; }
-    .profile-panel.open { transform: translateX(0); }
+    .side-panel { width: 100%; }
     .back-btn { display: flex; }
     .msg { max-width: 85%; }
   }
@@ -196,28 +197,25 @@
 
   <!-- ПРИЛОЖЕНИЕ -->
   <div class="app-inner hidden" id="appInner">
-    
-    <!-- Сайдбар (Список чатов) -->
     <aside class="sidebar">
       <header class="sidebar__header">
         <button class="icon-btn" id="menuBtn">☰</button>
         <div class="search">
-          <input type="text" id="searchInput" placeholder="Поиск людей...">
+          <input type="text" id="searchInput" placeholder="Поиск...">
         </div>
         <button class="icon-btn" id="newChatBtn">✏️</button>
       </header>
       <ul class="chat-list" id="chatList"></ul>
       <nav class="sidebar__nav">
         <button class="nav-btn active" data-tab="chats">💬<span>Чаты</span></button>
-        <button class="nav-btn" data-tab="profile">👤<span>Настройки</span></button>
+        <button class="nav-btn" data-tab="profile">👤<span>Профиль</span></button>
       </nav>
     </aside>
 
-    <!-- Окно чата -->
     <main class="chat" id="chatArea">
       <div class="chat__empty" id="chatEmpty">
         <div class="chat__empty-logo">Lumen</div>
-        <p>Выберите чат или найдите друга</p>
+        <p>Выберите чат</p>
       </div>
       <div class="chat__window hidden" id="chatWindow">
         <header class="chat__header">
@@ -234,25 +232,24 @@
           <button class="icon-btn" id="emojiBtn">😊</button>
           <input type="text" id="messageInput" placeholder="Написать сообщение...">
           <button class="icon-btn" id="voiceBtn">🎤</button>
+          <button class="icon-btn" id="videoNoteBtn">⭕</button>
           <button class="send-btn" id="sendBtn">➤</button>
         </footer>
 
-        <!-- Панель эмодзи -->
         <div class="emoji-panel hidden" id="emojiPanel">
           <span>😀</span><span>😂</span><span>🥰</span><span>😎</span><span>🤔</span><span>😴</span><span>🤯</span><span>😭</span>
           <span>👍</span><span>👎</span><span>❤️</span><span>🔥</span><span>🎉</span><span>💩</span><span>💯</span><span>🙏</span>
-          <span>🍻</span><span>☕</span><span>🍕</span><span>⚽</span><span>🎮</span><span>💻</span><span>📱</span><span>💡</span>
         </div>
       </div>
     </main>
 
-    <!-- Панель настроек / профиля -->
-    <aside class="profile-panel" id="profilePanel">
-      <header class="profile-panel__header">
-        <button class="icon-btn" id="closeProfileBtn">✕</button>
-        <h3 id="profilePanelTitle">Меню</h3>
+    <!-- ВЫЕЗЖАЮЩАЯ ПАНЕЛЬ СЛЕВА -->
+    <aside class="side-panel" id="sidePanel">
+      <header class="side-panel__header">
+        <button class="icon-btn" id="closeSidePanelBtn">✕</button>
+        <h3 id="sidePanelTitle">Меню</h3>
       </header>
-      <div class="profile-panel__body" id="profileBody"></div>
+      <div class="side-panel__body" id="sidePanelBody"></div>
     </aside>
   </div>
 
@@ -263,9 +260,6 @@
 </div>
 
 <script>
-  // ==========================================
-  //  ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-  // ==========================================
   const API = '/api';
   let socket = null;
   try { if (typeof io !== 'undefined') socket = io(); } catch (e) {}
@@ -280,13 +274,12 @@
   let activeChatId = null;
   let pinnedChats = JSON.parse(localStorage.getItem('pinned') || '[]');
   let theme = localStorage.getItem('theme') || 'dark';
+  let mediaRecorder = null;
+  let audioChunks = [];
+  let videoStream = null;
 
-  // Применяем тему
   if (theme === 'light') document.body.classList.add('theme-light');
 
-  // ==========================================
-  //  ВСПОМОГАТЕЛЬНЫЕ
-  // ==========================================
   function toast(msg) {
     const t = $('toast'); t.textContent = msg; t.classList.remove('hidden');
     setTimeout(() => t.classList.add('hidden'), 3000);
@@ -364,22 +357,16 @@
   $('searchInput').oninput = async (e) => {
     const q = e.target.value.trim();
     if (!q) { renderChats(); return; }
-    
     const res = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
     const users = await res.json();
-    
     const list = $('chatList'); list.innerHTML = '';
-    if (!users.length) return list.innerHTML = '<p style="padding:20px; color:var(--text-muted); text-align:center;">Никого не найдено</p>';
-    
+    if (!users.length) return list.innerHTML = '<p style="padding:20px; text-align:center; color:var(--text-muted);">Никого не найдено</p>';
     users.forEach(u => {
       if (u.phone === currentUser.phone) return;
       const li = document.createElement('li'); li.className = 'chat-item';
       li.innerHTML = `
         <div class="avatar" style="background:${u.color}">${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}</div>
-        <div class="chat-item__body">
-          <div class="chat-item__name">${esc(u.name)}</div>
-          <div class="chat-item__preview">@${esc(u.username)} · ${esc(u.phone)}</div>
-        </div>`;
+        <div class="chat-item__body"><div class="chat-item__name">${esc(u.name)}</div><div class="chat-item__preview">@${esc(u.username)}</div></div>`;
       li.onclick = () => { e.target.value = ''; openChat(u.phone); };
       list.appendChild(li);
     });
@@ -404,7 +391,6 @@
       chatArray.push({ contact, last, unread });
     });
 
-    // Сортируем: сначала закрепленные, потом по времени
     chatArray.sort((a, b) => {
       const aPinned = pinnedChats.includes(a.contact.phone);
       const bPinned = pinnedChats.includes(b.contact.phone);
@@ -417,29 +403,21 @@
       const { contact, last, unread } = item;
       const li = document.createElement('li');
       li.className = 'chat-item' + (activeChatId === contact.phone ? ' active' : '') + (pinnedChats.includes(contact.phone) ? ' pinned' : '');
-      
       li.innerHTML = `
         <div class="avatar" style="background:${contact.color}">${contact.avatar ? `<img src="${contact.avatar}">` : esc(initials(contact.name))}</div>
         <div class="chat-item__body">
-          <div class="chat-item__top">
-            <span class="chat-item__name">${esc(contact.name)}</span>
-            <span class="chat-item__time">${last ? last.time : ''}</span>
-          </div>
+          <div class="chat-item__top"><span class="chat-item__name">${esc(contact.name)}</span><span class="chat-item__time">${last ? last.time : ''}</span></div>
           <div class="chat-item__preview">${last ? (last.from === currentUser.phone ? 'Вы: ' : '') + (last.type === 'voice' ? '🎤 Голосовое' : last.type === 'video' ? '⭕ Кружок' : esc(last.text)) : ''}</div>
         </div>
         <span class="pinned-icon">📌</span>
         ${unread ? `<span class="unread-badge">${unread}</span>` : ''}
       `;
-      
-      // Клик - открыть
       li.onclick = () => openChat(contact.phone);
-      // Правый клик - закрепить
       li.oncontextmenu = (e) => {
         e.preventDefault();
         if (pinnedChats.includes(contact.phone)) pinnedChats = pinnedChats.filter(p => p !== contact.phone);
         else pinnedChats.push(contact.phone);
-        localStorage.setItem('pinned', JSON.stringify(pinnedChats));
-        renderChats();
+        localStorage.setItem('pinned', JSON.stringify(pinnedChats)); renderChats();
       };
       list.appendChild(li);
     });
@@ -465,7 +443,7 @@
   $('mobileBackBtn').onclick = () => { $('chatArea').classList.remove('open'); activeChatId = null; renderChats(); };
 
   // ==========================================
-  //  СООБЩЕНИЯ (Текст, Голос, Видео)
+  //  СООБЩЕНИЯ
   // ==========================================
   function renderMessages(contact) {
     const box = $('messages'); box.innerHTML = '';
@@ -476,7 +454,7 @@
         let content = '';
         
         if (m.type === 'voice') {
-          content = `<div class="msg-bubble-voice"><div class="voice-play-btn">▶</div><div class="voice-wave">${Array(8).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*100)}%"></div>`).join('')}</div><span style="font-size:12px; opacity:0.7">0:0${Math.floor(Math.random()*9)+1}</span></div>`;
+          content = `<div class="voice-msg"><div class="voice-play">▶</div><div class="voice-wave">${Array(8).fill(0).map(() => `<div style="height:${Math.floor(Math.random()*80)+20}%"></div>`).join('')}</div><span style="font-size:11px;">0:0${Math.floor(Math.random()*9)+1}</span></div>`;
         } else if (m.type === 'video') {
           content = `<div class="video-note"><video src="${m.text}" autoplay loop></video></div>`;
         } else {
@@ -487,24 +465,16 @@
         div.className = `msg ${isOut ? 'out' : 'in'}`;
         div.innerHTML = `
           <div class="bubble">${content}</div>
-          <div class="msg__meta">
-            <span>${m.time}</span>
-            ${isOut ? `<span class="check">✓✓</span>` : ''}
-            <button onclick="deleteMsg('${m.id}')" style="margin-left:5px; color:var(--danger); font-size:12px;">✖</button>
-          </div>`;
+          <div class="msg__meta"><span>${m.time}</span>${isOut ? `<span class="check">✓✓</span>` : ''}</div>
+        `;
         box.appendChild(div);
       });
     box.scrollTop = box.scrollHeight;
   }
 
-  window.deleteMsg = async (id) => {
-    await fetch(`${API}/delete-message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
-  };
-
   async function sendMessage(type = 'text', textContent = '') {
     const text = type === 'text' ? $('messageInput').value.trim() : textContent;
     if (!text || !activeChatId) return;
-    
     if (type === 'text') $('messageInput').value = '';
     
     try {
@@ -518,154 +488,178 @@
   $('messageInput').onkeydown = e => { if (e.key === 'Enter') sendMessage('text'); };
 
   // ==========================================
-  //  ФИШКИ: Эмодзи, Голосовые, Кружки
+  //  ЭМОДЗИ, ГОЛОСОВЫЕ И КРУЖКИ
   // ==========================================
-  const emojiPanel = $('emojiPanel');
-  $('emojiBtn').onclick = () => emojiPanel.classList.toggle('hidden');
-  emojiPanel.onclick = (e) => {
-    if (e.target.tagName === 'SPAN') {
-      $('messageInput').value += e.target.textContent;
-      $('messageInput').focus();
-    }
+  $('emojiBtn').onclick = () => $('emojiPanel').classList.toggle('hidden');
+  $('emojiPanel').onclick = (e) => {
+    if (e.target.tagName === 'SPAN') { $('messageInput').value += e.target.textContent; $('messageInput').focus(); }
   };
 
-  // Голосовое сообщение
-  $('voiceBtn').onclick = () => {
+  // Запись голосового
+  $('voiceBtn').onclick = async () => {
+    if (!activeChatId) return toast('Откройте чат');
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          sendMessage('voice', reader.result);
+          stream.getTracks().forEach(t => t.stop());
+        };
+        reader.readAsDataURL(blob);
+      };
+      mediaRecorder.start();
+      toast('🎤 Запись... Нажмите еще раз для отправки');
+    } catch (e) { toast('Нет доступа к микрофону'); }
+  };
+
+  // Запись видеокружка
+  $('videoNoteBtn').onclick = () => {
     if (!activeChatId) return toast('Откройте чат');
     
     openModal(`
-      <h3>Голосовое сообщение</h3>
-      <p style="text-align:center; font-size:40px; margin:20px 0;">🎤</p>
-      <div class="modal-actions">
-        <button class="modal-btn" onclick="closeModal()">Отмена</button>
-        <button class="modal-btn primary" id="recordVoiceBtn">Отправить (Тест)</button>
-      </div>
-    `);
-    
-    $('recordVoiceBtn').onclick = () => {
-      closeModal();
-      sendMessage('voice', 'voice_data_here');
-    };
-  };
-
-  // Кружок (Видео)
-  window.openVideoNote = () => {
-    openModal(`
-      <h3>Запись кружка</h3>
+      <h3>Записать видеокружок</h3>
       <video id="previewVideo" autoplay playsinline style="width:150px; height:150px; border-radius:50%; object-fit:cover; display:block; margin:0 auto; transform:scaleX(-1); background:#000;"></video>
       <div class="modal-actions">
-        <button class="modal-btn" onclick="closeModal(); stopStream()">Отмена</button>
-        <button class="modal-btn primary" id="sendVideoBtn">Записать</button>
+        <button class="modal-btn" onclick="stopVideoNote()">Отмена</button>
+        <button class="modal-btn primary" id="sendVideoBtn">Отправить</button>
       </div>
     `);
     
-    let stream;
     navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
-      stream = s;
+      videoStream = s;
       $('previewVideo').srcObject = s;
     }).catch(() => toast('Нет доступа к камере'));
 
-    window.stopStream = () => { if(stream) stream.getTracks().forEach(t => t.stop()); };
-
     $('sendVideoBtn').onclick = () => {
-      window.stopStream(); closeModal();
-      sendMessage('video', 'https://www.w3schools.com/html/mov_bbb.mp4'); // Демо-видео
+      stopVideoNote();
+      // В демо-версии отправляем тестовое видео (чтобы не перегружать сервер base64)
+      sendMessage('video', 'https://www.w3schools.com/html/mov_bbb.mp4');
     };
   };
 
+  window.stopVideoNote = () => {
+    if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+    closeModal();
+  };
+
   // ==========================================
-  //  НАСТРОЙКИ И ПРОФИЛЬ
+  //  БОКОВЫЕ ПАНЕЛИ (Меню и Профиль)
   // ==========================================
-  $('menuBtn').onclick = () => openProfilePanel();
-  $('closeProfileBtn').onclick = () => $('profilePanel').classList.remove('open');
+  $('menuBtn').onclick = () => { openSidePanelMenu(); $('sidePanel').classList.add('open'); };
+  $('closeSidePanelBtn').onclick = () => $('sidePanel').classList.remove('open');
+  
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.onclick = () => {
-      if (btn.dataset.tab === 'profile') openProfilePanel();
-      else $('profilePanel').classList.remove('open');
+      if (btn.dataset.tab === 'profile') openProfilePanel(currentUser.phone);
+      else $('sidePanel').classList.remove('open');
     };
   });
 
-  function openProfilePanel(viewUserPhone = null) {
-    $('profilePanel').classList.add('open');
-    const isMe = !viewUserPhone || viewUserPhone === currentUser.phone;
-    const u = isMe ? currentUser : DB.users.find(x => x.phone === viewUserPhone);
+  function openSidePanelMenu() {
+    $('sidePanelTitle').textContent = 'Меню';
+    $('sidePanelBody').innerHTML = `
+      <div class="menu-item" onclick="openProfilePanel('${currentUser.phone}')">
+        <div class="menu-item__icon">👤</div><div class="menu-item__text">Мой профиль</div>
+      </div>
+      <div class="menu-item" onclick="openSettingsPanel()">
+        <div class="menu-item__icon">⚙️</div><div class="menu-item__text">Настройки</div>
+      </div>
+      <div class="menu-item" onclick="toast('Истории скоро появятся!')">
+        <div class="menu-item__icon">⭕</div><div class="menu-item__text">Добавить историю</div>
+      </div>
+      <div class="menu-item" onclick="toast('Смена аккаунта...')">
+        <div class="menu-item__icon">🔄</div><div class="menu-item__text">Сменить аккаунт</div>
+      </div>
+      <div class="menu-item" style="color:var(--danger);" onclick="localStorage.removeItem('lumen_user'); location.reload();">
+        <div class="menu-item__icon">🚪</div><div class="menu-item__text">Выйти</div>
+      </div>
+    `;
+  }
+
+  window.openSettingsPanel = () => {
+    $('sidePanelTitle').textContent = 'Настройки';
+    $('sidePanelBody').innerHTML = `
+      <div class="settings-row">
+        <label>Тема</label>
+        <select id="setTheme">
+          <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Тёмная</option>
+          <option value="light" ${theme === 'light' ? 'selected' : ''}>Светлая</option>
+        </select>
+      </div>
+      <div class="settings-row">
+        <label>Акцент</label>
+        <input type="color" id="setAccent" value="#5288c1">
+      </div>
+      <div class="swatches" style="margin-bottom:20px;">
+        <div class="swatch" style="background:#5288c1" onclick="setAccent('#5288c1')"></div>
+        <div class="swatch" style="background:#e57373" onclick="setAccent('#e57373')"></div>
+        <div class="swatch" style="background:#81c784" onclick="setAccent('#81c784')"></div>
+        <div class="swatch" style="background:#ba68c8" onclick="setAccent('#ba68c8')"></div>
+      </div>
+    `;
+    $('setTheme').onchange = (e) => { 
+      theme = e.target.value; localStorage.setItem('theme', theme); 
+      if(theme==='light') document.body.classList.add('theme-light'); else document.body.classList.remove('theme-light'); 
+    };
+    $('setAccent').oninput = (e) => document.documentElement.style.setProperty('--accent', e.target.value);
+  };
+
+  window.openProfilePanel = (phone) => {
+    const u = DB.users.find(x => x.phone === phone) || currentUser;
+    const isMe = u.phone === currentUser.phone;
+    $('sidePanel').classList.add('open');
+    $('sidePanelTitle').textContent = isMe ? 'Мой профиль' : 'Профиль';
     
-    if (isMe) {
-      $('profilePanelTitle').textContent = 'Настройки';
-      $('profileBody').innerHTML = `
-        <div style="text-align:center; margin-bottom:20px;">
-          <label style="cursor:pointer;">
-            <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
-              ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
-            </div>
-            <div style="font-size:12px; color:var(--accent-light); margin-top:8px;">Сменить фото</div>
-            <input type="file" id="avatarInput" accept="image/*" class="hidden">
-          </label>
-          <h2 style="margin-top:10px;">${esc(u.name)}</h2>
-          <p style="color:var(--text-muted);">${esc(u.phone)}</p>
-        </div>
-        
+    $('sidePanelBody').innerHTML = `
+      <div style="text-align:center; margin-bottom:20px;">
+        <label style="cursor:pointer;">
+          <div class="avatar" style="width:80px; height:80px; margin:0 auto; font-size:30px; background:${u.color}">
+            ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
+          </div>
+          ${isMe ? `<div style="font-size:12px; color:var(--accent-light); margin-top:8px;">Сменить фото</div>` : ''}
+          ${isMe ? `<input type="file" id="avatarInput" accept="image/*" class="hidden">` : ''}
+        </label>
+        <h2 style="margin-top:10px;">${esc(u.name)}</h2>
+        <p style="color:var(--text-muted);">${esc(u.phone)}</p>
+      </div>
+      
+      ${isMe ? `
         <div class="profile-field"><label>Имя</label><input id="pName" value="${esc(u.name)}"></div>
         <button class="profile-save" id="pSave">Сохранить профиль</button>
-        
-        <div class="profile-section-title" style="margin-top:30px; font-size:12px; color:var(--text-muted);">ОФОРМЛЕНИЕ</div>
-        <div class="settings-row">
-          <label>Тема</label>
-          <select id="setTheme">
-            <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Тёмная</option>
-            <option value="light" ${theme === 'light' ? 'selected' : ''}>Светлая</option>
-          </select>
-        </div>
-        <div class="settings-row">
-          <label>Акцент</label>
-          <input type="color" id="setAccent" value="#5288c1">
-        </div>
-        <div class="swatches" style="margin-bottom:20px;">
-          <div class="swatch" style="background:#5288c1" onclick="setAccent('#5288c1')"></div>
-          <div class="swatch" style="background:#e57373" onclick="setAccent('#e57373')"></div>
-          <div class="swatch" style="background:#81c784" onclick="setAccent('#81c784')"></div>
-          <div class="swatch" style="background:#ba68c8" onclick="setAccent('#ba68c8')"></div>
-        </div>
-
-        <div class="profile-section-title" style="margin-top:20px; font-size:12px; color:var(--text-muted);">ДЕЙСТВИЯ</div>
-        <div class="profile-item" style="padding:12px; cursor:pointer; color:var(--accent-light);" onclick="openVideoNote()">⭕ Записать видеокружок</div>
-        <div class="profile-item" style="padding:12px; cursor:pointer; color:var(--danger);" onclick="localStorage.removeItem('lumen_user'); location.reload();">🚪 Выйти из аккаунта</div>
-      `;
-      
+      ` : ''}
+    `;
+    
+    if (isMe) {
       $('pSave').onclick = async () => {
         await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, name: $('pName').value }) });
         toast('Сохранено'); loadDB();
       };
-      $('setTheme').onchange = (e) => { theme = e.target.value; localStorage.setItem('theme', theme); if(theme==='light') document.body.classList.add('theme-light'); else document.body.classList.remove('theme-light'); };
-      $('setAccent').oninput = (e) => { document.documentElement.style.setProperty('--accent', e.target.value); };
       $('avatarInput').onchange = (e) => {
         const file = e.target.files[0]; if (!file) return;
         const reader = new FileReader();
         reader.onload = async (ev) => { await fetch(`${API}/profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: u.phone, avatar: ev.target.result }) }); loadDB(); toast('Фото обновлено'); };
         reader.readAsDataURL(file);
       };
-    } else {
-      // Чужой профиль
-      $('profilePanelTitle').textContent = 'Профиль';
-      $('profileBody').innerHTML = `
-        <div style="text-align:center; margin-bottom:20px;">
-          <div class="avatar" style="width:100px; height:100px; margin:0 auto; font-size:40px; background:${u.color}">
-            ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
-          </div>
-          <h2 style="margin-top:10px;">${esc(u.name)}</h2>
-          <p style="color:var(--accent-light);">@${esc(u.username)}</p>
-          <p style="color:var(--text-muted); margin-top:5px;">${esc(u.phone)}</p>
-        </div>
-      `;
     }
-  }
+  };
 
   window.setAccent = (color) => {
     document.documentElement.style.setProperty('--accent', color);
     if($('setAccent')) $('setAccent').value = color;
   };
 
-  // Добавление друга
+  // ==========================================
+  //  ДОБАВЛЕНИЕ ДРУГА (Поиск)
+  // ==========================================
   $('newChatBtn').onclick = () => {
     openModal(`
       <h3>Найти человека</h3>
@@ -687,7 +681,7 @@
         const users = await res.json();
         
         $('findResults').innerHTML = users.filter(u => u.phone !== currentUser.phone).map(u => `
-          <div class="search-result" onclick="closeModal(); openChat('${u.phone}')">
+          <div class="chat-item" onclick="closeModal(); openChat('${u.phone}')">
             <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">
               ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
             </div>
