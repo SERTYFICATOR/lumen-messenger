@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Lumen — мессенджер</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <style>
@@ -28,13 +28,14 @@
   .auth__step input:focus { border-color: var(--accent); }
   .auth__btn { background: var(--accent); border: none; color: #fff; padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 12px; }
   .auth__btn:hover { background: var(--accent-light); }
-  .auth__btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .auth__link { background: transparent; border: none; color: var(--accent-light); cursor: pointer; font-size: 13.5px; margin-top: 10px; }
   .auth__hint { font-size: 11.5px; color: var(--text-muted); text-align: center; margin-top: 8px; }
 
-  /* APP */
+  /* APP LAYOUT */
   .app-inner { display: flex; height: 100vh; max-width: 1600px; margin: 0 auto; position: relative; overflow: hidden; }
-  .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+  
+  /* SIDEBAR */
+  .sidebar { width: 380px; min-width: 320px; background: var(--bg-secondary); border-right: 1px solid var(--border); display: flex; flex-direction: column; transition: transform 0.3s ease; }
   .sidebar__header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
   .search { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg); border-radius: 20px; padding: 6px 12px; }
   .search input { flex: 1; background: transparent; border: none; outline: none; color: var(--text); font-size: 14px; }
@@ -61,12 +62,16 @@
   .nav-btn.active { color: var(--accent-light); }
 
   /* CHAT WINDOW */
-  .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; position: relative; }
+  .chat { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; position: relative; transition: transform 0.3s ease; }
   .chat__empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); }
   .chat__empty-logo { font-size: 48px; font-weight: 700; background: linear-gradient(135deg, var(--accent-light), var(--accent)); -webkit-background-clip: text; color: transparent; }
+  
   .chat__window { flex: 1; display: flex; flex-direction: column; min-height: 0; }
   .chat__header { display: flex; align-items: center; gap: 12px; padding: 8px 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border); }
   .chat__name { font-weight: 600; font-size: 15px; }
+  
+  /* Кнопка "Назад" для мобилок (по умолчанию скрыта) */
+  .back-btn { display: none; font-size: 22px; margin-right: -5px; }
 
   /* MESSAGES */
   .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 8px; }
@@ -107,6 +112,40 @@
   .modal-field label { display: block; font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px; }
   .modal-field input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; color: var(--text); font-size: 14.5px; outline: none; }
   .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--bg-active); color: #fff; padding: 12px 22px; border-radius: 24px; font-size: 14px; z-index: 300; }
+
+  /* ===== МОБИЛЬНАЯ ВЕРСИЯ (Адаптив) ===== */
+  @media (max-width: 768px) {
+    .app-inner { position: relative; }
+    
+    /* Левая панель на весь экран */
+    .sidebar { 
+      width: 100%; 
+      min-width: 100%; 
+      border-right: none;
+    }
+    
+    /* Окно чата поверх списка чатов */
+    .chat { 
+      position: absolute; 
+      inset: 0; 
+      z-index: 10; 
+      transform: translateX(100%); /* Сдвинуто вправо за экран */
+    }
+    
+    /* Когда чат открыт, показываем его и прячем список */
+    .chat.open { 
+      transform: translateX(0); 
+    }
+    
+    /* Показываем кнопку "Назад" */
+    .back-btn { display: flex; }
+    
+    /* Пузыри сообщений чуть шире */
+    .msg { max-width: 85%; }
+    
+    /* Настройки на весь экран */
+    .profile-panel { width: 100%; }
+  }
 </style>
 </head>
 <body>
@@ -129,7 +168,7 @@
       </div>
       <div class="auth__step hidden" id="authStepCode">
         <label class="auth__label">Введите код из 5 цифр</label>
-        <input type="text" id="authCode" placeholder="•••••" maxlength="5">
+        <input type="text" id="authCode" placeholder="•••••" maxlength="5" inputmode="numeric">
         <p class="auth__hint" id="authCodeHint"></p>
         <button class="auth__btn" id="authVerifyCode">Войти</button>
         <button class="auth__link" id="authBack">← Назад</button>
@@ -146,6 +185,7 @@
 
   <!-- ПРИЛОЖЕНИЕ -->
   <div class="app-inner hidden" id="appInner">
+    <!-- Сайдбар (Список чатов) -->
     <aside class="sidebar">
       <header class="sidebar__header">
         <button class="icon-btn" id="menuBtn">☰</button>
@@ -162,13 +202,15 @@
       </nav>
     </aside>
 
-    <main class="chat">
+    <!-- Окно чата -->
+    <main class="chat" id="chatArea">
       <div class="chat__empty" id="chatEmpty">
         <div class="chat__empty-logo">Lumen</div>
         <p>Выберите чат</p>
       </div>
       <div class="chat__window hidden" id="chatWindow">
         <header class="chat__header">
+          <button class="icon-btn back-btn" id="mobileBackBtn">←</button>
           <div class="avatar small" id="chatAvatar"></div>
           <div class="chat__name" id="chatName"></div>
         </header>
@@ -180,6 +222,7 @@
       </div>
     </main>
 
+    <!-- Панель настроек -->
     <aside class="profile-panel hidden" id="profilePanel">
       <header class="profile-panel__header">
         <button class="icon-btn" id="closeProfileBtn">✕</button>
@@ -196,20 +239,11 @@
 </div>
 
 <script>
-  // 1. Правильное определение API (на Render работает через относительные пути)
   const API = '/api';
   let socket = null;
-
-  // 2. Проверка загрузки Socket.IO
   try {
-    if (typeof io !== 'undefined') {
-      socket = io();
-    } else {
-      console.warn("Socket.IO не загрузился. Уведомления работать не будут.");
-    }
-  } catch (e) {
-    console.error("Ошибка инициализации Socket.IO", e);
-  }
+    if (typeof io !== 'undefined') socket = io();
+  } catch (e) {}
 
   const $ = id => document.getElementById(id);
   const esc = s => String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -231,16 +265,15 @@
   function closeModal() { $('modalOverlay').classList.add('hidden'); }
   $('modalOverlay').onclick = e => { if (e.target.id === 'modalOverlay') closeModal(); };
 
-  // 3. Безопасная загрузка данных
   async function loadDB() {
     try {
       const res = await fetch(`${API}/db`);
-      if (!res.ok) throw new Error('Сервер вернул ошибку');
+      if (!res.ok) throw new Error('Ошибка сервера');
       DB = await res.json();
       renderChats();
     } catch (e) {
       console.error(e);
-      toast('Ошибка сети. Проверьте интернет или сервер.');
+      toast('Ошибка сети');
     }
   }
 
@@ -267,23 +300,15 @@
 
   $('authSendCode').onclick = async () => {
     const phone = $('authPhone').value.trim();
-    if (!phone) { toast('Введите номер'); return; }
-    
-    // Блокируем кнопку, чтобы не было двойных кликов
+    if (!phone) return toast('Введите номер');
     $('authSendCode').disabled = true;
     $('authSendCode').textContent = 'Загрузка...';
 
     try {
-      const res = await fetch(`${API}/auth/check`, { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ phone }) 
-      });
-      
+      const res = await fetch(`${API}/auth/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
       const data = await res.json();
       pendingPhone = phone;
       $('authStepPhone').classList.add('hidden');
-      
       if (data.exists && data.requiresPassword) {
         $('authStepPassword').classList.remove('hidden');
       } else if (data.exists) {
@@ -294,9 +319,8 @@
         $('authStepCode').classList.remove('hidden');
       }
     } catch (e) {
-      console.error(e);
-      toast('Ошибка соединения с сервером');
-      $('authStepPhone').classList.remove('hidden'); // Возвращаем назад при ошибке
+      toast('Ошибка соединения');
+      $('authStepPhone').classList.remove('hidden');
     } finally {
       $('authSendCode').disabled = false;
       $('authSendCode').textContent = 'Продолжить';
@@ -326,7 +350,6 @@
     const name = $('authName').value.trim();
     const username = $('authUsername').value.trim();
     if (!name || !username) return toast('Заполните поля');
-    
     try {
       const res = await fetch(`${API}/auth/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: pendingPhone, name, username, color: randColor() }) });
       const data = await res.json();
@@ -374,9 +397,14 @@
     const contact = DB.users.find(u => u.phone === phone);
     activeChatId = phone;
     
+    // На мобилке сдвигаем экран чата
+    if (window.innerWidth <= 768) {
+      $('chatArea').classList.add('open');
+    }
+
     try {
       await fetch(`${API}/read`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: phone, to: currentUser.phone }) });
-    } catch(e) { console.warn("Не удалось отметить прочитанным"); }
+    } catch(e) {}
 
     $('chatEmpty').classList.add('hidden');
     $('chatWindow').classList.remove('hidden');
@@ -386,6 +414,15 @@
     await loadDB();
     renderMessages(contact);
   }
+
+  // Кнопка "Назад" на мобилке
+  $('mobileBackBtn').onclick = () => {
+    $('chatArea').classList.remove('open');
+    activeChatId = null;
+    $('chatWindow').classList.add('hidden');
+    $('chatEmpty').classList.remove('hidden');
+    renderChats();
+  };
 
   function renderMessages(contact) {
     const box = $('messages');
@@ -403,12 +440,11 @@
     const text = $('messageInput').value.trim();
     if (!text || !activeChatId) return;
     $('messageInput').value = '';
-    
     try {
       await fetch(`${API}/message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: currentUser.phone, to: activeChatId, text }) });
       await loadDB();
       renderMessages(DB.users.find(u => u.phone === activeChatId));
-    } catch(e) { toast('Сообщение не отправлено. Нет связи.'); }
+    } catch(e) { toast('Нет связи'); }
   }
 
   // --- СОБЫТИЯ ---
