@@ -299,7 +299,6 @@
   let pinnedChats = JSON.parse(localStorage.getItem('pinned') || '[]');
   let theme = localStorage.getItem('theme') || 'dark';
   
-  // Переменные для медиа
   let voiceRecorder = null, voiceChunks = [], voiceTimerInt = null, voiceSeconds = 0;
   let videoRecorder = null, videoChunks = [], videoStream = null, videoTimerInt = null, videoSeconds = 0;
 
@@ -451,15 +450,26 @@
     const users = await res.json();
     const list = $('chatList'); list.innerHTML = '';
     if (!users.length) return list.innerHTML = '<p style="padding:20px; text-align:center; color:var(--text-muted);">Никого не найдено</p>';
+    
     users.forEach(u => {
       if (u.phone === currentUser.phone) return;
       const li = document.createElement('li'); li.className = 'chat-item';
       li.innerHTML = `
         <div class="avatar" style="background:${u.color}">${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}</div>
-        <div class="chat-item__body"><div class="chat-item__name">${esc(u.name)}</div><div class="chat-item__preview">@${esc(u.username)}</div></div>`;
+        <div class="chat-item__body">
+          <div class="chat-item__name">${esc(u.name)}</div>
+          <div class="chat-item__preview">@${esc(u.username)} · ${esc(u.phone)}</div>
+        </div>
+        <button class="icon-btn" style="color:var(--accent);" onclick="event.stopPropagation(); addFriend('${u.phone}')">➕</button>
+      `;
       li.onclick = () => { e.target.value = ''; openChat(u.phone); };
       list.appendChild(li);
     });
+  };
+
+  window.addFriend = async (phone) => {
+    await fetch(`${API}/friend`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }) });
+    toast('Добавлен в друзья'); loadDB();
   };
 
   function renderChats() {
@@ -576,9 +586,10 @@
     if (type === 'text') $('messageInput').value = '';
     
     try {
+      // Отправляем на сервер
       await fetch(`${API}/message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: currentUser.phone, to: activeChatId, text, type }) });
-      await loadDB();
-      renderMessages(DB.users.find(u => u.phone === activeChatId));
+      // Сразу перерисовываем (не ждем сокета, чтобы было мгновенно)
+      loadDB().then(() => renderMessages(DB.users.find(u => u.phone === activeChatId)));
     } catch (e) { toast('Ошибка отправки'); }
   }
 
@@ -594,11 +605,10 @@
   };
 
   // ==========================================
-  //  ГОЛОСОВОЕ СООБЩЕНИЕ (Запись)
+  //  ГОЛОСОВОЕ И ВИДЕО
   // ==========================================
   $('voiceBtn').onclick = async () => {
     if (!activeChatId) return toast('Откройте чат');
-    
     openModal(`
       <div class="rec-overlay">
         <div class="rec-circle recording" id="recCircle">🎤</div>
@@ -609,14 +619,10 @@
         </div>
       </div>
     `);
-    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       voiceRecorder = new MediaRecorder(stream);
-      voiceChunks = [];
-      voiceSeconds = 0;
-      $('recTimer').textContent = '0:00';
-      
+      voiceChunks = []; voiceSeconds = 0; $('recTimer').textContent = '0:00';
       voiceRecorder.ondataavailable = e => voiceChunks.push(e.data);
       voiceRecorder.onstop = () => {
         const blob = new Blob(voiceChunks, { type: 'audio/webm' });
@@ -624,36 +630,19 @@
         reader.onloadend = () => { sendMessage('voice', reader.result); stream.getTracks().forEach(t => t.stop()); };
         reader.readAsDataURL(blob);
       };
-      
       voiceRecorder.start();
       voiceTimerInt = setInterval(() => {
         voiceSeconds++;
-        const m = Math.floor(voiceSeconds / 60);
-        const s = voiceSeconds % 60;
-        $('recTimer').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
+        $('recTimer').textContent = `0:${voiceSeconds < 10 ? '0' : ''}${voiceSeconds}`;
       }, 1000);
-      
     } catch (e) { closeModal(); toast('Нет доступа к микрофону'); }
   };
 
-  window.stopVoice = () => {
-    clearInterval(voiceTimerInt);
-    if (voiceRecorder) voiceRecorder.stop();
-    closeModal();
-  };
+  window.stopVoice = () => { clearInterval(voiceTimerInt); if (voiceRecorder) voiceRecorder.stop(); closeModal(); };
+  window.cancelVoice = () => { clearInterval(voiceTimerInt); if (voiceRecorder) { voiceRecorder.onstop = null; voiceRecorder.stop(); } closeModal(); };
 
-  window.cancelVoice = () => {
-    clearInterval(voiceTimerInt);
-    if (voiceRecorder) { voiceRecorder.onstop = null; voiceRecorder.stop(); }
-    closeModal();
-  };
-
-  // ==========================================
-  //  ВИДЕОКРУЖОК (Запись)
-  // ==========================================
   $('videoNoteBtn').onclick = async () => {
     if (!activeChatId) return toast('Откройте чат');
-    
     openModal(`
       <div class="rec-overlay">
         <video id="recVideo" autoplay playsinline muted style="width:200px; height:200px; border-radius:50%; object-fit:cover; transform:scaleX(-1); border:4px solid var(--accent);"></video>
@@ -664,17 +653,11 @@
         </div>
       </div>
     `);
-    
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 480, height: 480 }, audio: true });
-      videoStream = stream;
-      $('recVideo').srcObject = stream;
-      
+      videoStream = stream; $('recVideo').srcObject = stream;
       videoRecorder = new MediaRecorder(stream);
-      videoChunks = [];
-      videoSeconds = 0;
-      $('recTimerVid').textContent = '0:00';
-      
+      videoChunks = []; videoSeconds = 0; $('recTimerVid').textContent = '0:00';
       videoRecorder.ondataavailable = e => videoChunks.push(e.data);
       videoRecorder.onstop = () => {
         const blob = new Blob(videoChunks, { type: 'video/webm' });
@@ -682,16 +665,12 @@
         reader.onloadend = () => { sendMessage('video', reader.result); stream.getTracks().forEach(t => t.stop()); };
         reader.readAsDataURL(blob);
       };
-      
       videoRecorder.start();
       videoTimerInt = setInterval(() => {
         videoSeconds++;
-        const m = Math.floor(videoSeconds / 60);
-        const s = videoSeconds % 60;
-        $('recTimerVid').textContent = `${m}:${s < 10 ? '0' : ''}${s}`;
-        if (videoSeconds >= 60) stopVideoNote(); // Максимум 60 секунд
+        $('recTimerVid').textContent = `0:${videoSeconds < 10 ? '0' : ''}${videoSeconds}`;
+        if (videoSeconds >= 60) stopVideoNote();
       }, 1000);
-      
     } catch (e) { closeModal(); toast('Нет доступа к камере'); }
   };
 
@@ -804,12 +783,6 @@
         <label>Акцент</label>
         <input type="color" id="setAccent" value="#5288c1" style="background:var(--bg); border:1px solid var(--border); padding:2px; border-radius:6px;">
       </div>
-      <div class="swatches" style="display:flex; gap:8px; margin-top:10px;">
-        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#5288c1;" onclick="setAccent('#5288c1')"></div>
-        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#e57373;" onclick="setAccent('#e57373')"></div>
-        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#81c784;" onclick="setAccent('#81c784')"></div>
-        <div class="swatch" style="width:30px; height:30px; border-radius:50%; background:#ba68c8;" onclick="setAccent('#ba68c8')"></div>
-      </div>
     `;
     $('setTheme').onchange = (e) => { 
       theme = e.target.value; localStorage.setItem('theme', theme); 
@@ -872,9 +845,6 @@
     if($('setAccent')) $('setAccent').value = color;
   };
 
-  // ==========================================
-  //  ДОБАВЛЕНИЕ ДРУГА
-  // ==========================================
   $('newChatBtn').onclick = () => {
     openModal(`
       <h3>Найти человека</h3>
@@ -896,23 +866,21 @@
         const users = await res.json();
         
         $('findResults').innerHTML = users.filter(u => u.phone !== currentUser.phone).map(u => `
-          <div class="chat-item" onclick="closeModal(); openChat('${u.phone}')">
+          <div class="chat-item">
             <div class="avatar" style="width:36px; height:36px; font-size:14px; background:${u.color}">
               ${u.avatar ? `<img src="${u.avatar}">` : esc(initials(u.name))}
             </div>
-            <div>
+            <div style="flex:1;">
               <div style="font-weight:500;">${esc(u.name)}</div>
               <div style="font-size:12px; color:var(--text-muted);">@${esc(u.username)} · ${esc(u.phone)}</div>
             </div>
+            <button class="modal-btn primary" style="padding:6px 12px; font-size:12px;" onclick="closeModal(); addFriend('${u.phone}'); openChat('${u.phone}')">Добавить</button>
           </div>
         `).join('') || '<div style="padding:10px; text-align:center; color:var(--text-muted);">Никого не найдено</div>';
       }, 300);
     };
   };
 
-  // ==========================================
-  //  СОКЕТЫ И СТАРТ
-  // ==========================================
   if (socket) {
     socket.on('new_message', () => { if (currentUser) loadDB().then(() => { if (activeChatId) renderMessages(DB.users.find(u => u.phone === activeChatId)); }); });
     socket.on('messages_read', () => { if (currentUser) loadDB(); });
