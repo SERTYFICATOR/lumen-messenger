@@ -103,7 +103,6 @@ app.post('/api/friend/decline', (req, res) => {
   writeDB(db); res.json({ success: true });
 });
 
-// --- КАНАЛЫ ---
 app.post('/api/channel/create', (req, res) => {
   const db = readDB();
   const channel = { 
@@ -118,37 +117,25 @@ app.post('/api/channel/create', (req, res) => {
   res.json({ success: true, channel });
 });
 
-app.post('/api/channel/subscribe', (req, res) => {
-  const db = readDB();
-  const channel = db.channels.find(c => c.id === req.body.channelId);
-  if (channel && !channel.subscribers.includes(req.body.phone)) {
-    channel.subscribers.push(req.body.phone); writeDB(db);
-  }
-  res.json({ success: true });
-});
-
-// --- СООБЩЕНИЯ ---
 app.post('/api/message', (req, res) => {
-  const { from, to, text, type, replyTo } = req.body;
+  const { from, to, text, type } = req.body;
   const db = readDB();
   
-  // Если это канал
   if (to.startsWith('ch_')) {
     const channel = db.channels.find(c => c.id === to);
     if (channel && channel.authorPhone === from) {
-      const msg = { id: Date.now().toString(), from, to, text, type: type || 'text', replyTo, time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now(), read: false };
+      const msg = { id: Date.now().toString(), from, to, text, type: type || 'text', time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }), timestamp: Date.now(), read: false };
       channel.messages.push(msg); writeDB(db);
       io.emit('channel_message', { channelId: to, msg });
     }
     return res.json({ success: true });
   }
 
-  // Обычный чат
   if (!db.users.find(u => u.phone === to)) {
     db.users.push({ phone: to, name: 'Пользователь', username: 'user' + to.slice(-4), color: '#5288c1' });
   }
   const msg = {
-    id: Date.now().toString(), from, to, text, type: type || 'text', replyTo,
+    id: Date.now().toString(), from, to, text, type: type || 'text',
     time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
     timestamp: Date.now(), read: false
   };
@@ -167,19 +154,6 @@ app.post('/api/message', (req, res) => {
     }, 1000);
   }
   res.json({ success: true, message: msg });
-});
-
-app.post('/api/message/edit', (req, res) => {
-  const db = readDB();
-  const msg = db.messages.find(m => m.id === req.body.id);
-  if (msg && msg.from === req.body.phone) { msg.text = req.body.text; writeDB(db); io.emit('msg_edited', msg); }
-  res.json({ success: true });
-});
-
-app.post('/api/message/delete', (req, res) => {
-  const db = readDB();
-  db.messages = db.messages.filter(m => !(m.id === req.body.id && m.from === req.body.phone));
-  writeDB(db); io.emit('msg_deleted', req.body.id); res.json({ success: true });
 });
 
 app.post('/api/read', (req, res) => {
